@@ -175,14 +175,10 @@ fn despawn_furniture_system(
     windows: Res<Windows>,
     mut query: Query<(Entity, &Translation, &Despawnable)>,
 ) {
-    let (scr_width, _scr_height) = if let Some(window) = windows.get_primary() {
-        (window.height as f32, window.height as f32)
-    } else {
-        (SCR_WIDTH, SCR_HEIGHT)
-    };
+    let window_size = get_window_size(windows);
 
     for (entity, translation, _despawnable) in &mut query.iter() {
-        if translation.0.x() < -scr_width / 2. - 200. {
+        if translation.0.x() < -window_size.width / 2. - 200. {
             commands.despawn(entity);                
             println!("Despawn furniture");
         }
@@ -339,6 +335,7 @@ fn player_input_system(
             // Move tha position of the player up a bit to avoid colliding with object before jumping
             *translation.0.y_mut() = translation.0.y() + 0.2;
 
+            // Adjust jump force depending on how many jumps player has already made
             let adjuster: f32 = if TOTAL_NUMBER_OF_JUMPS == player.num_of_jumps {
                 1.
             } else {
@@ -433,7 +430,15 @@ fn player_collision_system(
 }
 
 pub struct Velocity(pub Vec2);
+
 pub struct Gravity(f32);
+
+impl Default for Gravity {
+    fn default() -> Self {
+        Self(9.82 * 40.)
+    }
+}
+
 pub struct AffectedByGravity {
     is_grounded: bool,
 }
@@ -452,14 +457,11 @@ fn gravity_system(
     affected_by_gravity: &AffectedByGravity,
     mut velocity: Mut<Velocity>,
 ) {
-    //println!("is_grounded: {}", affected_by_gravity.is_grounded);
-
     if affected_by_gravity.is_grounded {
         *velocity.0.y_mut() = 0.;
     } else {
         *velocity.0.y_mut() -= gravity.0 * time.delta_seconds;
     }
-
 }
 
 fn velocity_system(
