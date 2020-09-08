@@ -4,6 +4,8 @@ use bevy::{
     self,
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
+    window::CursorMoved, 
+    input::mouse::{MouseButtonInput, MouseMotion}
 };
 use rand::{thread_rng, Rng};
 
@@ -29,6 +31,21 @@ fn main() {
         .add_startup_system(setup.system())
         .add_resource(Gravity(9.82 * 40.))
         .run();
+}
+
+#[derive(Default)]
+struct MouseState {
+    mouse_button_event_reader: EventReader<MouseButtonInput>,
+    mouse_motion_event_reader: EventReader<MouseMotion>,
+    cursor_moved_event_reader: EventReader<CursorMoved>,
+    //mouse_wheel_event_reader: EventReader<MouseWheel>,
+}
+
+struct Crosshair {
+    // Aim direction
+    aim: Vec2, 
+    // Distance from center of player
+    distance: f32,
 }
 
 fn setup(
@@ -193,9 +210,11 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_system(player_spawn_system.system())
+            .init_resource::<MouseState>()
             .add_system(player_input_system.system())
             .add_system(adjust_jump_system.system())
-            .add_system(player_collision_system.system());
+            .add_system(player_collision_system.system())
+            .add_system(crosshair_system.system());
     }
 }
 
@@ -233,11 +252,84 @@ fn player_spawn_system(
             is_grounded: false,
         })
         .with(Velocity(Vec2::zero()));
+
+    commands
+        .spawn(SpriteComponents {
+            material: materials.add(Color::rgb(1., 1., 1.).into()),
+            translation: Translation(Vec3::zero()),
+            //translation: Translation(Vec3::new(0., -SCR_HEIGHT/ 2. + 50.,0.)),
+            sprite: Sprite {
+                size: Vec2::new(5., 5.),
+            },
+            ..Default::default()
+        })
+        .with(Crosshair { 
+            aim: Vec2::zero(),
+            distance: 20.,
+        });
+}
+
+
+fn get_distance(a: &Vec2, b: &Vec2) -> f32 {
+    (a.x().powi(2) - b.x().powi(2) + a.y().powi(2) - b.y().powi(2)).sqrt()
+}
+
+fn get_direction(a: &Vec2, b: &Vec2) -> Vec2 {
+    Vec2::new(b.x() - a.x(), b.y() - a.y())
+}
+
+fn get_window_size(windows: Res<Windows>) -> Size {
+    if let Some(window) = windows.get_primary() {
+        Size::new(window.height as f32, window.height as f32)
+    } else {
+        Size::new(SCR_WIDTH, SCR_HEIGHT)
+    }
+}
+
+fn crosshair_system(
+    windows: Res<Windows>,
+    mut state: ResMut<MouseState>,
+    mouse_button_input_events: Res<Events<MouseButtonInput>>,
+    cursor_moved_events: Res<Events<CursorMoved>>,
+    mouse_motion_events: Res<Events<MouseMotion>>,
+    mut query: Query<(&Player, &Translation)>,
+    mut c_query: Query<(&mut Crosshair, &mut Translation)>,
+) {
+    let window_size = get_window_size(windows);
+
+    for (_player, translation) in &mut query.iter() {
+        for (mut crosshair, mut c_translation) in &mut c_query.iter() {
+            
+            let mut b_receive_event = false;
+            for event in state.cursor_moved_event_reader.iter(&cursor_moved_events) {
+                b_receive_event = true;
+
+                let cursor_pos = event.position - Vec2::new(window_size.width / 2., window_size.height / 2.);
+
+                set_aim(&translation.0.truncate(), &cursor_pos, &mut c_translation.0);
+                crosshair.aim = cursor_pos;
+            }
+
+            if !b_receive_event {
+                set_aim(&translation.0.truncate(), &crosshair.aim, &mut c_translation.0);
+            }
+        }
+    }
+}
+
+fn set_aim(a: &Vec2, b: &Vec2, translation: &mut Vec3) {
+    let direction = get_direction(a, b);
+    let distance = 40.;
+    let norm = direction.normalize() * distance;
+    let aim = Vec2::new(a.x() + norm.x(), a.y() + norm.y());
+
+    translation.set_x(aim.x());
+    translation.set_y(aim.y());
 }
 
 fn player_input_system(
     _time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
+    keyboard_input: Res<Input<KeyCode>>,    
     mut query: Query<(&mut Player, &mut Translation, &mut Velocity, &mut AffectedByGravity)>,
 ) {
     for (mut player ,mut translation, mut velocity, mut affected) in &mut query.iter() {
