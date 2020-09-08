@@ -42,7 +42,7 @@ fn setup(
         material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
         translation: Translation(Vec3::new(0., -SCR_HEIGHT / 2., 0.)),
         sprite: Sprite {
-            size: Vec2::new(SCR_WIDTH, 10.),
+            size: Vec2::new(SCR_WIDTH, 20.),
         },
         ..Default::default()
     })
@@ -207,7 +207,7 @@ fn player_spawn_system(
     commands
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(1., 0., 0.).into()),
-            translation: Translation(Vec3::zero()),
+            translation: Translation(Vec3::new(0., -SCR_HEIGHT/ 2. + 80.,0.)),
             sprite: Sprite {
                 size: Vec2::new(12., 20.),
             },
