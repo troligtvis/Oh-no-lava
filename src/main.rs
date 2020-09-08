@@ -55,7 +55,7 @@ enum FurnitureShape {
     Chair,
     Table,
     Sofa,
-    Refrigirator,
+    Refrigerator,
     TV,
     Lamp,
 }
@@ -90,6 +90,15 @@ pub struct FurniturePlugin;
 
 impl Plugin for FurniturePlugin {
     fn build(&self, app: &mut AppBuilder) {
+        let furnitures = vec![
+            Furniture { shape: FurnitureShape::Chair, size: Vec2::new(20., 36.) },
+            Furniture { shape: FurnitureShape::Table, size: Vec2::new(64., 28.) },
+            Furniture { shape: FurnitureShape::Sofa, size: Vec2::new(64., 36.) },
+            Furniture { shape: FurnitureShape::Refrigerator, size: Vec2::new(44., 68.) },
+            Furniture { shape: FurnitureShape::TV, size: Vec2::new(52., 32.) },
+            Furniture { shape: FurnitureShape::Lamp, size: Vec2::new(32., 44.) },
+        ];
+
         app.add_resource(SpawnTimer {
                 timer: Timer::from_seconds(2.0, true),
                 last_position: 0.5,
@@ -99,6 +108,7 @@ impl Plugin for FurniturePlugin {
                 max_time: 3.2,
                 speed: Speed(68.)
             })
+            .add_resource(furnitures)
             .add_system(spawn_furniture_system.system())
             .add_system(despawn_furniture_system.system());
     }
@@ -108,6 +118,7 @@ fn spawn_furniture_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     spawn_options: Res<FurnitureSpawnOptions>,
+    furnitures: Res<Vec<Furniture>>,
     time: Res<Time>,
     mut spawn_timer: ResMut<SpawnTimer>,
 ) {
@@ -119,12 +130,19 @@ fn spawn_furniture_system(
     let mut rng = thread_rng();
     spawn_timer.timer.duration = rng.gen_range(spawn_options.min_time, spawn_options.max_time);
 
+    let idx = rng.gen_range(0, furnitures.len());
+    let furniture = &furnitures[idx];
+
+    let r = rng.gen_range(0, 255) as f32 / 255.;
+    let g = rng.gen_range(0, 255) as f32 / 255.;
+    let b = rng.gen_range(0, 255) as f32 / 255.;
+
     commands
         .spawn(SpriteComponents {
-            material: materials.add(Color::rgb(0., 1., 0.).into()),
-            translation: Translation(Vec3::new(SCR_WIDTH / 2., -SCR_HEIGHT / 2. + 44. / 2., 0.)),
+            material: materials.add(Color::rgb(r, g, b).into()),
+            translation: Translation(Vec3::new(SCR_WIDTH / 2. + 200., -SCR_HEIGHT / 2. + furniture.size.y() / 2., 0.)),
             sprite: Sprite {
-                size: Vec2::new(44., 44.),
+                size: furniture.size,
             },
             ..Default::default()
         })
@@ -147,7 +165,7 @@ fn despawn_furniture_system(
     };
 
     for (entity, translation, _despawnable) in &mut query.iter() {
-        if translation.0.x() < -scr_width / 2. + 100. {
+        if translation.0.x() < -scr_width / 2. - 200. {
             commands.despawn(entity);                
             println!("Despawn furniture");
         }
