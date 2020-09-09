@@ -82,7 +82,6 @@ struct Furniture {
 
 pub struct SpawnTimer {
     pub timer: Timer,
-    pub last_position: f32,
 }
 
 pub struct FurnitureSpawnOptions {
@@ -116,7 +115,6 @@ impl Plugin for FurniturePlugin {
 
         app.add_resource(SpawnTimer {
                 timer: Timer::from_seconds(2.0, true),
-                last_position: 0.5,
             })
             .add_resource(FurnitureSpawnOptions {
                 min_time: 1.9,
@@ -183,6 +181,80 @@ fn despawn_furniture_system(
     }
 }
 
+fn spawn_projectile_system(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    mouse_button_input: Res<Input<MouseButton>>,
+    mut query: Query<(&Crosshair, &Translation)>
+) {
+    if !mouse_button_input.just_pressed(MouseButton::Left) {
+        return
+    }
+
+    // TOdo add timer as well to not shoot too fast
+
+    for (crosshair, translation) in &mut query.iter() {
+        let direction = get_direction(&translation.0.truncate(), &crosshair.aim);
+
+    commands
+        .spawn(SpriteComponents {
+            material: materials.add(Color::rgb(1., 1., 1.).into()),
+            translation: Translation(translation.0),
+            sprite: Sprite {
+                size: Vec2::new(5., 5.),
+            },
+            ..Default::default()
+        })
+        .with(Projectile {
+            direction,
+            time_to_live: Timer::from_seconds(1.0, true), 
+        })
+        .with(ProjectileState::idle)
+        .with(AffectedByGravity { 
+            is_grounded: false,
+         })
+        .with(Velocity(Vec2::zero()));
+        //.with(Collider::Solid)
+    }
+}
+
+fn shoot_projectile_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut Projectile, &mut Velocity, &mut ProjectileState, /*&mut Sprite*/)>,
+) {
+    for (entity, mut projectile, mut velocity, mut state) in &mut query.iter() {
+        if let ProjectileState::idle = *state {
+            *state = ProjectileState::active;
+            let projectile_velocity = projectile.direction.normalize() * 200.;
+            velocity.0.set_x(projectile_velocity.x());
+            velocity.0.set_y(projectile_velocity.y()); 
+        } else {
+            projectile.time_to_live.tick(time.delta_seconds);
+            if !projectile.time_to_live.finished {
+                // let v = Vec2::new(0.1, 0.1) * -3. * time.delta_seconds;
+                // sprite.size = v;//Size::new(v.x(), v.y());
+
+                return;
+            } 
+            println!("Despawn projectile");
+            commands.despawn(entity);
+        } 
+    }
+}
+
+#[derive(PartialEq)]
+enum ProjectileState {
+    idle,
+    active,
+    // dead,
+}
+
+struct Projectile {
+    direction: Vec2,
+    time_to_live: Timer,
+}
+
 struct KeyboardControls {
     left: KeyCode,
     right: KeyCode,
@@ -205,10 +277,17 @@ impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_system(player_spawn_system.system())
             .init_resource::<MouseState>()
+            .add_resource(SpawnTimer {
+                timer: Timer::from_seconds(2.0, true),
+            })
             .add_system(player_input_system.system())
             .add_system(adjust_jump_system.system())
             .add_system(player_collision_system.system())
-            .add_system(crosshair_system.system());
+            .add_system(crosshair_system.system())
+            .add_stage_before(stage::UPDATE, "spawn_projectile")
+            .add_stage_after(stage::UPDATE, "shoot_projectile")
+            .add_system_to_stage("spawn_projectile", spawn_projectile_system.system())
+            .add_system_to_stage("shoot_projectile", shoot_projectile_system.system());
     }
 }
 
@@ -223,7 +302,7 @@ fn player_spawn_system(
             translation: Translation(Vec3::new(0., -SCR_HEIGHT/ 2. + 80.,0.)),
             sprite: Sprite {
                 size: Vec2::new(12., 20.),
-            },
+            }, 
             ..Default::default()
         })
         .with(
