@@ -5,7 +5,7 @@ use bevy::{
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
     window::CursorMoved, 
-    input::mouse::{MouseButtonInput, MouseMotion}
+    input::mouse::{MouseButtonInput}
 };
 use rand::{thread_rng, Rng};
 
@@ -36,9 +36,7 @@ fn main() {
 #[derive(Default)]
 struct MouseState {
     mouse_button_event_reader: EventReader<MouseButtonInput>,
-    mouse_motion_event_reader: EventReader<MouseMotion>,
     cursor_moved_event_reader: EventReader<CursorMoved>,
-    //mouse_wheel_event_reader: EventReader<MouseWheel>,
 }
 
 struct Crosshair {
@@ -167,7 +165,7 @@ fn spawn_furniture_system(
         .with(Collider::Solid)
         .with(Despawnable);
 
-    println!("Spawn furniture");
+    //println!("Spawn furniture");
 }
 
 fn despawn_furniture_system(
@@ -180,7 +178,7 @@ fn despawn_furniture_system(
     for (entity, translation, _despawnable) in &mut query.iter() {
         if translation.0.x() < -window_size.width / 2. - 200. {
             commands.despawn(entity);                
-            println!("Despawn furniture");
+            //println!("Despawn furniture");
         }
     }
 }
@@ -253,7 +251,6 @@ fn player_spawn_system(
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(1., 1., 1.).into()),
             translation: Translation(Vec3::zero()),
-            //translation: Translation(Vec3::new(0., -SCR_HEIGHT/ 2. + 50.,0.)),
             sprite: Sprite {
                 size: Vec2::new(5., 5.),
             },
@@ -261,7 +258,7 @@ fn player_spawn_system(
         })
         .with(Crosshair { 
             aim: Vec2::zero(),
-            distance: 20.,
+            distance: 40.,
         });
 }
 
@@ -285,16 +282,15 @@ fn get_window_size(windows: Res<Windows>) -> Size {
 fn crosshair_system(
     windows: Res<Windows>,
     mut state: ResMut<MouseState>,
-    mouse_button_input_events: Res<Events<MouseButtonInput>>,
+    mouse_button_input: Res<Input<MouseButton>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
-    mouse_motion_events: Res<Events<MouseMotion>>,
     mut query: Query<(&Player, &Translation)>,
-    mut c_query: Query<(&mut Crosshair, &mut Translation)>,
+    mut c_query: Query<(&mut Crosshair, &mut Translation, &mut Sprite)>,
 ) {
     let window_size = get_window_size(windows);
 
     for (_player, translation) in &mut query.iter() {
-        for (mut crosshair, mut c_translation) in &mut c_query.iter() {
+        for (mut crosshair, mut c_translation, _) in &mut c_query.iter() {
             
             let mut b_receive_event = false;
             for event in state.cursor_moved_event_reader.iter(&cursor_moved_events) {
@@ -302,25 +298,32 @@ fn crosshair_system(
 
                 let cursor_pos = event.position - Vec2::new(window_size.width / 2., window_size.height / 2.);
 
-                set_aim(&translation.0.truncate(), &cursor_pos, &mut c_translation.0);
+                set_aim(&translation.0.truncate(), &cursor_pos, crosshair.distance, &mut c_translation);
                 crosshair.aim = cursor_pos;
             }
 
             if !b_receive_event {
-                set_aim(&translation.0.truncate(), &crosshair.aim, &mut c_translation.0);
+                set_aim(&translation.0.truncate(), &crosshair.aim, crosshair.distance, &mut c_translation);
             }
         }
     }
+
+    for (_, _, mut sprite) in &mut c_query.iter() {
+        sprite.size = if mouse_button_input.pressed(MouseButton::Left) {
+            Vec2::new(10., 10.)
+        } else {
+            Vec2::new(5., 5.)
+        };
+    }
 }
 
-fn set_aim(a: &Vec2, b: &Vec2, translation: &mut Vec3) {
+fn set_aim(a: &Vec2, b: &Vec2, distance: f32, translation: &mut Translation) {
     let direction = get_direction(a, b);
-    let distance = 40.;
     let norm = direction.normalize() * distance;
     let aim = Vec2::new(a.x() + norm.x(), a.y() + norm.y());
 
-    translation.set_x(aim.x());
-    translation.set_y(aim.y());
+    *translation.x_mut() = aim.x();
+    *translation.y_mut() = aim.y();
 }
 
 fn player_input_system(
@@ -399,19 +402,19 @@ fn adjust_jump_system(
 }
 
 fn player_collision_system(
-    mut player_query: Query<(Entity, &mut Player, &mut Translation, &mut Velocity, &mut AffectedByGravity, &Sprite)>,
-    mut collider_query: Query<(Entity, &Collider, Without<Player, &Velocity>, &Translation, &Sprite)>,
+    mut player_query: Query<(&mut Player, &mut Translation, &mut Velocity, &mut AffectedByGravity, &Sprite)>,
+    mut collider_query: Query<(&Collider, Without<Player, &Velocity>, &Translation, &Sprite)>,
 ) {
-    for (_player_entity, mut player, mut player_translation, mut velocity, mut player_affected, sprite) in &mut player_query.iter() {
+    for (mut player, mut player_translation, mut velocity, mut player_affected, sprite) in &mut player_query.iter() {
         let player_size = sprite.size;
 
         let check_translation = Translation::new(player_translation.x(), player_translation.0.y() - 0.2, 0.) ;
         player_affected.is_grounded = false;
-        for (_collider_entity, _collider, c_velocity, translation, sprite) in &mut collider_query.iter() {
+        for (_collider, c_velocity, translation, sprite) in &mut collider_query.iter() {
             let collision = collide(check_translation.0, player_size, translation.0, sprite.size);
             if let Some(collision) = collision {
                 match collision {
-                    Collision::Top => {
+                    Collision::Top => { 
                         // let is_grounded = *collider == Collider::Solid;
                         player_affected.is_grounded = true;
 
