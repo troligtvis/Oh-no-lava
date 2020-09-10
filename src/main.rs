@@ -4,10 +4,13 @@ use bevy::{
     self,
     prelude::*,
     sprite::collide_aabb::{collide, Collision},
-    window::CursorMoved, 
+    window::CursorMoved,
     input::mouse::{MouseButtonInput}
 };
 use rand::{thread_rng, Rng};
+
+// mod animation;
+// use animation::*;
 
 // due to not being able to access windows from a `startup_system`
 // fixed values will be needed for screen size during startup
@@ -28,6 +31,7 @@ fn main() {
         .add_plugin(FurniturePlugin)
         .add_plugin(PlayerPlugin)
         .add_plugin(PhysicsPlugin)
+        //.add_plugin(AnimationPlugin)
         .add_startup_system(setup.system())
         .add_resource(Gravity(9.82 * 40.))
         .run();
@@ -41,7 +45,7 @@ struct MouseState {
 
 struct Crosshair {
     // Aim direction
-    aim: Vec2, 
+    aim: Vec2,
     // Distance from center of player
     distance: f32,
 }
@@ -121,9 +125,9 @@ impl Plugin for FurniturePlugin {
                 max_time: 3.2,
                 speed: Speed(68.)
             })
-            .add_resource(furnitures)
-            .add_system(spawn_furniture_system.system())
-            .add_system(despawn_furniture_system.system());
+            .add_resource(furnitures);
+            // .add_system(spawn_furniture_system.system())
+            // .add_system(despawn_furniture_system.system());
     }
 }
 
@@ -175,7 +179,7 @@ fn despawn_furniture_system(
 
     for (entity, translation, _despawnable) in &mut query.iter() {
         if translation.0.x() < -window_size.width / 2. - 200. {
-            commands.despawn(entity);                
+            commands.despawn(entity);
             //println!("Despawn furniture");
         }
     }
@@ -196,50 +200,54 @@ fn spawn_projectile_system(
     for (crosshair, translation) in &mut query.iter() {
         let direction = get_direction(&translation.0.truncate(), &crosshair.aim);
 
-    commands
-        .spawn(SpriteComponents {
-            material: materials.add(Color::rgb(1., 1., 1.).into()),
-            translation: Translation(translation.0),
-            sprite: Sprite {
-                size: Vec2::new(5., 5.),
-            },
-            ..Default::default()
-        })
-        .with(Projectile {
-            direction,
-            time_to_live: Timer::from_seconds(1.0, true), 
-        })
-        .with(ProjectileState::idle)
-        .with(AffectedByGravity { 
-            is_grounded: false,
-         })
-        .with(Velocity(Vec2::zero()));
-        //.with(Collider::Solid)
+        let projectile_velocity = direction.normalize() * 200.;
+
+        let upper = 20.;
+        let lower = -20.;
+        let mut rng = thread_rng();
+        let x = rng.gen_range(lower, upper);
+        let y = rng.gen_range(lower, upper);
+
+        commands
+            .spawn(SpriteComponents {
+                material: materials.add(Color::rgb(0.1, 0.5, 0.8).into()),
+                translation: Translation(translation.0),
+                sprite: Sprite {
+                    size: Vec2::new(5., 5.),
+                },
+                ..Default::default()
+            })
+            .with(Projectile {
+                direction,
+                time_to_live: Timer::from_seconds(2.0, true),
+            })
+            .with(ProjectileState::active)
+            .with(AffectedByGravity {
+                is_grounded: false,
+            })
+            .with(Velocity(Vec2::new(
+                projectile_velocity.x() + x,
+                projectile_velocity.y() + y
+            )));
+            //.with(Collider::Solid)
     }
 }
 
 fn shoot_projectile_system(
     mut commands: Commands,
     time: Res<Time>,
-    mut query: Query<(Entity, &mut Projectile, &mut Velocity, &mut ProjectileState, /*&mut Sprite*/)>,
+    mut query: Query<(Entity, &mut Projectile, &mut Sprite)>,
 ) {
-    for (entity, mut projectile, mut velocity, mut state) in &mut query.iter() {
-        if let ProjectileState::idle = *state {
-            *state = ProjectileState::active;
-            let projectile_velocity = projectile.direction.normalize() * 200.;
-            velocity.0.set_x(projectile_velocity.x());
-            velocity.0.set_y(projectile_velocity.y()); 
-        } else {
-            projectile.time_to_live.tick(time.delta_seconds);
-            if !projectile.time_to_live.finished {
-                // let v = Vec2::new(0.1, 0.1) * -3. * time.delta_seconds;
-                // sprite.size = v;//Size::new(v.x(), v.y());
-
-                return;
-            } 
-            println!("Despawn projectile");
-            commands.despawn(entity);
-        } 
+    for (entity, mut projectile, mut sprite) in &mut query.iter() {
+        projectile.time_to_live.tick(time.delta_seconds);
+        if !projectile.time_to_live.finished {
+            let procentage = 1. -(projectile.time_to_live.elapsed) / projectile.time_to_live.duration;
+            sprite.size = Vec2::new(5.0, 5.0) * procentage;
+            
+            return;
+        }
+        println!("Despawn projectile");
+        commands.despawn(entity);
     }
 }
 
@@ -276,6 +284,7 @@ pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_startup_system(player_spawn_system.system())
+            .add_system(animate_sprite_system.system())
             .init_resource::<MouseState>()
             .add_resource(SpawnTimer {
                 timer: Timer::from_seconds(2.0, true),
@@ -291,20 +300,58 @@ impl Plugin for PlayerPlugin {
     }
 }
 
+struct BoxCollider {
+    position: Vec2,
+    body: Size,
+}
+
 // TODO: - rename to spawn_system when moving to separate files
 fn player_spawn_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
+    // mut asset_server: Res<AssetServer>,
+    // mut textures: ResMut<Assets<Texture>>,
+    // mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    // let texture_handle = asset_server
+    //     .load_sync(&mut textures, "resources/PxTogether4_Player_Run.png")
+    //     .unwrap();
+    // let texture = textures.get(&texture_handle).unwrap();
+    // let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 8, 1);
+    // let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
+    // println!("Texture size {}", texture.size);
+
+    let translation = Translation(Vec3::new(0., -SCR_HEIGHT/ 2. + 80.,0.));
     commands
-        .spawn(SpriteComponents {
-            material: materials.add(Color::rgb(1., 0., 0.).into()),
+        .spawn(
+            // SpriteSheetComponents {
+            //     texture_atlas: texture_atlas_handle,
+            //     scale: Scale(2.0),
+            //     translation,
+            //     draw: Draw {
+            //         is_transparent: true,
+            //         is_visible: true,
+            //         render_commands: Vec::new(),
+            //     },
+            //     ..Default::default()
+            // })
+            // .with(Timer::from_seconds(0.1, true)) // Animation timer
+            SpriteComponents {
+            material: materials.add(Color::rgba(1., 0., 0., 0.8).into()),
             translation: Translation(Vec3::new(0., -SCR_HEIGHT/ 2. + 80.,0.)),
             sprite: Sprite {
-                size: Vec2::new(12., 20.),
-            }, 
+                size: Vec2::new(8., 16.)
+            },
             ..Default::default()
         })
+        // .with(Sprite {
+        //     size: texture.size
+        // })
+        // .with(BoxCollider {
+        //     position: Vec2::new(translation.0.x() - 4., translation.0.y() - 8.),
+        //     body: Size::new(8., 16.),
+        // })
         .with(
             Player {
                 speed: Speed(200.),
@@ -325,6 +372,7 @@ fn player_spawn_system(
             is_grounded: false,
         })
         .with(Velocity(Vec2::zero()));
+        
 
     commands
         .spawn(SpriteComponents {
@@ -335,12 +383,23 @@ fn player_spawn_system(
             },
             ..Default::default()
         })
-        .with(Crosshair { 
+        .with(Crosshair {
             aim: Vec2::zero(),
             distance: 40.,
         });
 }
 
+fn animate_sprite_system(
+    texture_atlases: Res<Assets<TextureAtlas>>,
+    mut query: Query<(&mut Timer, &mut TextureAtlasSprite, &Handle<TextureAtlas>)>,
+) {
+    for (timer, mut sprite, texture_atlas_handle) in &mut query.iter() {
+        if timer.finished {
+            let texture_atlas = texture_atlases.get(&texture_atlas_handle).unwrap();
+            sprite.index = ((sprite.index as usize + 1) % texture_atlas.textures.len()) as u32;
+        }
+    }
+}
 
 fn get_distance(a: &Vec2, b: &Vec2) -> f32 {
     (a.x().powi(2) - b.x().powi(2) + a.y().powi(2) - b.y().powi(2)).sqrt()
@@ -370,7 +429,7 @@ fn crosshair_system(
 
     for (_player, translation) in &mut query.iter() {
         for (mut crosshair, mut c_translation, _) in &mut c_query.iter() {
-            
+
             let mut b_receive_event = false;
             for event in state.cursor_moved_event_reader.iter(&cursor_moved_events) {
                 b_receive_event = true;
@@ -407,7 +466,7 @@ fn set_aim(a: &Vec2, b: &Vec2, distance: f32, translation: &mut Translation) {
 
 fn player_input_system(
     _time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,    
+    keyboard_input: Res<Input<KeyCode>>,
     mut query: Query<(&mut Player, &mut Translation, &mut Velocity, &mut AffectedByGravity)>,
 ) {
     for (mut player ,mut translation, mut velocity, mut affected) in &mut query.iter() {
@@ -463,7 +522,7 @@ fn adjust_jump_system(
     mut query: Query<(&Player, &mut Velocity, &AffectedByGravity)>,
 ) {
     let dt = time.delta_seconds;
-    
+
     for (player, mut velocity, affected) in &mut query.iter() {
         if affected.is_grounded {
             break;
@@ -486,6 +545,9 @@ fn player_collision_system(
 ) {
     for (mut player, mut player_translation, mut velocity, mut player_affected, sprite) in &mut player_query.iter() {
         let player_size = sprite.size;
+        // *player_size.x_mut() = 12.; //player_size.y() * 0.8;
+
+        // println!("{}", player_size);
 
         let check_translation = Translation::new(player_translation.x(), player_translation.0.y() - 0.2, 0.) ;
         player_affected.is_grounded = false;
@@ -493,7 +555,7 @@ fn player_collision_system(
             let collision = collide(check_translation.0, player_size, translation.0, sprite.size);
             if let Some(collision) = collision {
                 match collision {
-                    Collision::Top => { 
+                    Collision::Top => {
                         // let is_grounded = *collider == Collider::Solid;
                         player_affected.is_grounded = true;
 
