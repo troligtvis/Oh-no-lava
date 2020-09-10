@@ -60,7 +60,7 @@ pub struct Velocity(pub Vec2);
 
 pub struct Gravity(f32);
 
-pub struct AffectedByGravity {
+pub struct GravitationalAttraction {
     is_grounded: bool,
 }
 
@@ -75,7 +75,7 @@ impl Plugin for PhysicsPlugin {
 fn gravity_system(
     gravity: Res<Gravity>,
     time: Res<Time>,
-    affected_by_gravity: &AffectedByGravity,
+    attraction: &GravitationalAttraction,
     mut velocity: Mut<Velocity>,
 ) {
     if affected_by_gravity.is_grounded {
@@ -86,10 +86,8 @@ fn gravity_system(
 }
 
 fn velocity_system(time: Res<Time>, mut position: Mut<Translation>, velocity: Mut<Velocity>) {
-    let y = position.0.y();
-    let x = position.0.x();
     let dt = time.delta_seconds;
 
-    position.0.set_y(y + velocity.0.y() * dt);
-    position.0.set_x(x + velocity.0.x() * dt);
+    *position.0.x_mut() = position.0.x() + velocity.0.x() * dt;
+    *position.0.y_mut() = position.0.y() + velocity.0.y() * dt;
 }

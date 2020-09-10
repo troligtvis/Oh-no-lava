@@ -1,6 +1,6 @@
 #![allow(dead_code)]
 
-use crate::{bevy::prelude::*, util::*, AffectedByGravity, Velocity};
+use crate::{bevy::prelude::*, util::*, GravitationalAttraction, Velocity};
 
 use rand::{thread_rng, Rng};
 
@@ -80,7 +80,7 @@ pub fn spawn_projectile_system(
                 time_to_live: Timer::from_seconds(2.0, true),
             })
             .with(ProjectileState::Active)
-            .with(AffectedByGravity { is_grounded: false })
+            .with(GravitationalAttraction { is_grounded: false })
             .with(Velocity(Vec2::new(
                 projectile_velocity.x() + x,
                 projectile_velocity.y() + y,

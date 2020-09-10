@@ -7,7 +7,7 @@ use crate::{
     },
     projectile::*,
     util::*,
-    AffectedByGravity, Collider, Force, Gravity, SpawnTimer, Speed, Velocity,
+    GravitationalAttraction, Collider, Force, Gravity, SpawnTimer, Speed, Velocity,
 };
 
 const TOTAL_NUMBER_OF_JUMPS: usize = 2;
@@ -63,7 +63,7 @@ fn spawn_system(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
             },
         })
         .with(Collider::Solid)
-        .with(AffectedByGravity { is_grounded: false })
+        .with(GravitationalAttraction { is_grounded: false })
         .with(Velocity(Vec2::zero()));
 
     commands
@@ -146,12 +146,12 @@ fn player_input_system(
         &mut Player,
         &mut Translation,
         &mut Velocity,
-        &mut AffectedByGravity,
+        &mut GravitationalAttraction,
     )>,
 ) {
-    for (mut player, mut translation, mut velocity, mut affected) in &mut query.iter() {
+    for (mut player, mut translation, mut velocity, mut attraction) in &mut query.iter() {
         if keyboard_input.just_pressed(player.controls.jump) && player.num_of_jumps > 0 {
-            affected.is_grounded = false;
+            attraction.is_grounded = false;
 
             // Move tha position of the player up a bit to avoid colliding with object before jumping
             *translation.0.y_mut() = translation.0.y() + 0.2;
@@ -170,7 +170,7 @@ fn player_input_system(
 
         let mut direction = Vec2::zero();
         if keyboard_input.pressed(player.controls.left) {
-            let x = if affected.is_grounded {
+            let x = if attraction.is_grounded {
                 player.speed.0
             } else {
                 player.air_speed.0
@@ -179,7 +179,7 @@ fn player_input_system(
         }
 
         if keyboard_input.pressed(player.controls.right) {
-            let x = if affected.is_grounded {
+            let x = if attraction.is_grounded {
                 player.speed.0
             } else {
                 player.air_speed.0
@@ -196,7 +196,7 @@ fn adjust_jump_system(
     time: Res<Time>,
     gravity: Res<Gravity>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&Player, &mut Velocity, &AffectedByGravity)>,
+    mut query: Query<(&Player, &mut Velocity, &GravitationalAttraction)>,
 ) {
     let dt = time.delta_seconds;
 
@@ -221,7 +221,7 @@ fn player_collision_system(
         &mut Player,
         &mut Translation,
         &mut Velocity,
-        &mut AffectedByGravity,
+        &mut GravitationalAttraction,
         &Sprite,
     )>,
     mut collider_query: Query<(&Collider, Without<Player, &Velocity>, &Translation, &Sprite)>,
