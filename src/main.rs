@@ -42,6 +42,33 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         })
         .with(Velocity(Vec2::zero()))
         .with(Collider::Solid);
+
+    // Walls
+    commands
+        .spawn(SpriteComponents {
+            material: materials.add(Color::rgb(0.2, 0.8, 0.8).into()),
+            translation: Translation(Vec3::new(SCR_WIDTH / 2. - 100., -SCR_HEIGHT / 2., 0.)),
+            sprite: Sprite {
+                size: Vec2::new(20., SCR_HEIGHT),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with(Velocity(Vec2::zero()))
+        .with(Collider::Solid);
+
+    commands
+        .spawn(SpriteComponents {
+            material: materials.add(Color::rgb(0.2, 0.8, 0.8).into()),
+            translation: Translation(Vec3::new(-SCR_WIDTH / 2. + 100., -SCR_HEIGHT / 2., 0.)),
+            sprite: Sprite {
+                size: Vec2::new(20., SCR_HEIGHT),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with(Velocity(Vec2::zero()))
+        .with(Collider::Solid);
 }
 
 pub struct SpawnTimer {
