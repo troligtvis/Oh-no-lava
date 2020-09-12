@@ -115,6 +115,6 @@ fn gravity_system(
 fn velocity_system(time: Res<Time>, mut position: Mut<Translation>, velocity: Mut<Velocity>) {
     let dt = time.delta_seconds;
 
-    *position.0.x_mut() = position.0.x() + velocity.0.x() * dt;
-    *position.0.y_mut() = position.0.y() + velocity.0.y() * dt;
+    *position.0.x_mut() += velocity.0.x() * dt;
+    *position.0.y_mut() += velocity.0.y() * dt;
 }
