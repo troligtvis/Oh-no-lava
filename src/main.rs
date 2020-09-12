@@ -78,7 +78,7 @@ fn gravity_system(
     attraction: &GravitationalAttraction,
     mut velocity: Mut<Velocity>,
 ) {
-    if affected_by_gravity.is_grounded {
+    if attraction.is_grounded {
         *velocity.0.y_mut() = 0.;
     } else {
         *velocity.0.y_mut() -= gravity.0 * time.delta_seconds;
