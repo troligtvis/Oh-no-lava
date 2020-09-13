@@ -10,6 +10,8 @@ use crate::{
     Collider, Force, GravitationalAttraction, Gravity, SpawnTimer, Speed, Velocity,
 };
 
+use rand::{thread_rng, Rng};
+
 const TOTAL_NUMBER_OF_JUMPS: usize = 2;
 const FALL_MULTIPLIER: f32 = 2.5;
 const LOW_JUMP_MULTIPLIER: f32 = 2.;
@@ -144,6 +146,8 @@ fn set_aim(a: &Vec2, b: &Vec2, distance: f32, translation: &mut Translation) {
 }
 
 fn jump(velocity: &mut Velocity, player: &mut Player) {
+    player.collision_data.below = false;
+
     // Adjust jump force depending on how many jumps player has already made
     let adjuster: f32 = if TOTAL_NUMBER_OF_JUMPS == player.num_of_jumps {
         1.
@@ -181,7 +185,7 @@ fn player_input_system(
             attraction.is_grounded = false;
 
             if player.collision_data.below {
-                player.collision_data.below = false;
+                player.collision_data.prev_below = false;
 
                 // Move tha position of the player up a bit to avoid colliding with object before jumping
                 *translation.0.y_mut() = translation.0.y() + 0.2;
@@ -259,6 +263,8 @@ fn adjust_jump_system(
 }
 
 fn player_collision_system(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
     mut player_query: Query<(
         &mut Player,
         &mut Translation,
@@ -287,6 +293,13 @@ fn player_collision_system(
                         attraction.is_grounded = true;
                         player.collision_data.below = true;
                         player.is_wall_jumping = false;
+
+                        if !player.collision_data.prev_below {
+                            player.collision_data.prev_below = true;
+                            let mut position = player_translation.0.truncate();
+                            *position.y_mut() -= player_size.y() / 2.; 
+                            spawn_dust_particle(&mut commands, &mut materials, position);
+                        }
 
                         // Adjust player to be on top of platform
                         player_translation.0.set_y(
@@ -323,6 +336,7 @@ struct CollisionData {
     above: bool,
     below: bool,
     facing_direction: i8, // 1 or -1
+    prev_below: bool,
 }
 
 impl Default for CollisionData {
@@ -333,6 +347,7 @@ impl Default for CollisionData {
             above: false,
             below: false,
             facing_direction: 1,
+            prev_below: false,
         }
     }
 }
@@ -362,9 +377,74 @@ impl Plugin for PlayerPlugin {
             .add_system(player_input_system.system())
             .add_system(adjust_jump_system.system())
             .add_system(crosshair_system.system())
+            .add_system(dust_particle_cleanup_system.system())
             .add_stage_before(stage::UPDATE, "spawn_projectile")
             .add_stage_after(stage::UPDATE, "shoot_projectile")
             .add_system_to_stage("spawn_projectile", spawn_projectile_system.system())
             .add_system_to_stage("shoot_projectile", shoot_projectile_system.system());
+    }
+}
+
+struct DustParticle {
+    size: Vec2,
+    time_to_live: Timer,
+}
+
+impl Default for DustParticle {
+    fn default() -> Self {
+        Self {
+            size: Vec2::new(2., 2.),
+            time_to_live: Timer::from_seconds(0.3, false),
+        }
+    }
+}
+
+fn spawn_dust_particle(
+    commands: &mut Commands,
+    materials: &mut ResMut<Assets<ColorMaterial>>,
+    position: Vec2,
+) {
+    let upper = 140.;
+    let lower = -140.;
+    let mut rng = thread_rng();
+
+    for _ in 0..5 {
+        let x = rng.gen_range(lower, upper);
+        let y = rng.gen_range(lower, upper);
+    
+        let particle = DustParticle::default();
+        commands.spawn(SpriteComponents {
+            material: materials.add(Color::rgba(1., 1., 1., 0.6).into()),
+            translation: Translation(position.extend(0.)),
+            sprite: Sprite {
+                size: particle.size,
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with(particle)
+        .with(GravitationalAttraction { is_grounded: false })
+        .with(Velocity(Vec2::new(
+            0. + x,
+            60.,
+        )));
+    }
+}
+
+fn dust_particle_cleanup_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    mut query: Query<(Entity, &mut DustParticle, &mut Sprite)> 
+) {
+    for (entity, mut particle, mut sprite) in &mut query.iter() {
+        particle.time_to_live.tick(time.delta_seconds);
+        if !particle.time_to_live.finished {
+            let procentage =
+                1. - (particle.time_to_live.elapsed) / particle.time_to_live.duration;
+            sprite.size = particle.size * procentage;
+
+            return;
+        }
+        commands.despawn(entity);
     }
 }
