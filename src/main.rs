@@ -41,7 +41,8 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             ..Default::default()
         })
         .with(Velocity(Vec2::zero()))
-        .with(Collider::Solid);
+        .with(Collider::Solid)
+        .with(Ground);
 
     // Walls
     commands
@@ -55,7 +56,8 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             ..Default::default()
         })
         .with(Velocity(Vec2::zero()))
-        .with(Collider::Solid);
+        .with(Collider::Solid)
+        .with(Wall);
 
     commands
         .spawn(SpriteComponents {
@@ -68,7 +70,8 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             ..Default::default()
         })
         .with(Velocity(Vec2::zero()))
-        .with(Collider::Solid);
+        .with(Collider::Solid)
+        .with(Wall);
 }
 
 pub struct SpawnTimer {
@@ -80,6 +83,9 @@ enum Collider {
     Solid,
 }
 
+pub struct Ground;
+pub struct Wall;
+
 pub struct Despawnable;
 pub struct Speed(f32);
 pub struct Force(f32);
@@ -89,6 +95,16 @@ pub struct Gravity(f32);
 
 pub struct GravitationalAttraction {
     is_grounded: bool,
+    is_touching_wall: bool,
+}
+
+impl Default for GravitationalAttraction {
+    fn default() -> Self {
+        Self {
+            is_grounded: false,
+            is_touching_wall: false,
+        }
+    }
 }
 
 pub struct PhysicsPlugin;
@@ -107,6 +123,8 @@ fn gravity_system(
 ) {
     if attraction.is_grounded {
         *velocity.0.y_mut() = 0.;
+    } else if !attraction.is_grounded && attraction.is_touching_wall {
+        *velocity.0.y_mut() = -9.82 * 3.; //gravity.0 * 2. * time.delta_seconds
     } else {
         *velocity.0.y_mut() -= gravity.0 * time.delta_seconds;
     }

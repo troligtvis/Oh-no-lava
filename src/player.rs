@@ -8,6 +8,7 @@ use crate::{
     projectile::*,
     util::*,
     Collider, Force, GravitationalAttraction, Gravity, SpawnTimer, Speed, Velocity,
+    Wall, Ground,
 };
 
 use rand::{thread_rng, Rng};
@@ -40,7 +41,6 @@ struct KeyboardControls {
     jump: KeyCode,
 }
 
-// TODO: - rename to spawn_system when moving to separate files
 fn spawn_system(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     let translation = Translation(Vec3::new(0., -SCR_HEIGHT / 2. + 80., 0.));
     commands
@@ -69,8 +69,14 @@ fn spawn_system(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
             is_wall_jumping: false,
         })
         .with(Collider::Solid)
-        .with(GravitationalAttraction { is_grounded: false })
-        .with(Velocity(Vec2::zero()));
+        .with(GravitationalAttraction::default())
+        .with(Velocity(Vec2::zero()))
+        .with(Raycast {
+            origin: Vec2::zero(),
+            direction: Direction::Left,
+            t: 4.,
+            size: Vec2::new(4., 1.),
+        });
 
     commands
         .spawn(SpriteComponents {
@@ -158,16 +164,17 @@ fn jump(velocity: &mut Velocity, player: &mut Player) {
     velocity.0.set_y(player.jump_force.0 * 20. * adjuster);
 
     player.num_of_jumps -= 1;
-    println!("Normal jump");
+    // println!("Normal jump");
 }
 
 fn wall_jump(velocity: &mut Velocity, player: &mut Player, direction: Vec2) {
-    velocity.0.set_x(player.jump_force.0 * 10. * direction.x());
-    velocity.0.set_y(player.jump_force.0 * 10. * direction.y());
+    let force = player.jump_force.0 * 10.;
+    velocity.0.set_x(force * direction.x());
+    velocity.0.set_y(force * direction.y());
 
     // Reset jumps when wall jumping
     player.num_of_jumps = TOTAL_NUMBER_OF_JUMPS;
-    println!("Wall jump");
+    // println!("Wall jump");
 }
 
 fn player_input_system(
@@ -224,6 +231,12 @@ fn player_input_system(
             direction.set_x(x);
         }
 
+        if direction.x() > 0. {
+            player.collision_data.facing_direction = 1;
+        } else if direction.x() < 0. {
+            player.collision_data.facing_direction = -1;
+        }
+
         if player.is_wall_jumping {
             let direction: Vec3 = direction.extend(0.);
             if velocity.0.x().abs() > player.air_speed.0 {
@@ -247,7 +260,7 @@ fn adjust_jump_system(
     let dt = time.delta_seconds;
 
     for (player, mut velocity, affected) in &mut query.iter() {
-        if affected.is_grounded {
+        if affected.is_grounded || player.collision_data.touching_wall {
             break;
         }
 
@@ -278,18 +291,21 @@ fn player_collision_system(
         &mut player_query.iter()
     {
         let player_size = sprite.size;
-        let check_translation =
-            Translation::new(player_translation.x(), player_translation.0.y() - 0.2, 0.);
+        let check_translation = Translation::new(
+            player_translation.x(), 
+            player_translation.0.y() - 0.2, 
+            0.
+        );
 
         attraction.is_grounded = false;
 
         player.collision_data.reset();
 
         for (_collider, c_velocity, translation, sprite) in &mut collider_query.iter() {
-            let collision = collide(check_translation.0, player_size, translation.0, sprite.size);
+            let collision = collide(translation.0, sprite.size, check_translation.0, player_size);
             if let Some(collision) = collision {
                 match collision {
-                    Collision::Top => {
+                    Collision::Bottom => {
                         attraction.is_grounded = true;
                         player.collision_data.below = true;
                         player.is_wall_jumping = false;
@@ -309,14 +325,14 @@ fn player_collision_system(
                         // Set players velocity the same as the platform
                         *velocity.0.x_mut() = velocity.0.x() + c_velocity.0.x();
                     }
-                    Collision::Left => {
+                    Collision::Right => {
                         player_translation.0.set_x(
                             translation.0.x() - sprite.size.x() / 2. - player_size.x() / 2. + 0.1,
                         );
 
                         player.collision_data.right = true
                     }
-                    Collision::Right => {
+                    Collision::Left => {
                         player_translation.0.set_x(
                             translation.0.x() + sprite.size.x() / 2. + player_size.x() / 2. - 0.1,
                         );
@@ -337,6 +353,7 @@ struct CollisionData {
     below: bool,
     facing_direction: i8, // 1 or -1
     prev_below: bool,
+    touching_wall: bool,
 }
 
 impl Default for CollisionData {
@@ -348,6 +365,7 @@ impl Default for CollisionData {
             below: false,
             facing_direction: 1,
             prev_below: false,
+            touching_wall: false,
         }
     }
 }
@@ -375,6 +393,8 @@ impl Plugin for PlayerPlugin {
             })
             .add_system(player_collision_system.system())
             .add_system(player_input_system.system())
+            .add_system(update_raycast_system.system())
+            .add_system(raycast_hit_system.system())
             .add_system(adjust_jump_system.system())
             .add_system(crosshair_system.system())
             .add_system(dust_particle_cleanup_system.system())
@@ -410,7 +430,6 @@ fn spawn_dust_particle(
 
     for _ in 0..5 {
         let x = rng.gen_range(lower, upper);
-        let y = rng.gen_range(lower, upper);
     
         let particle = DustParticle::default();
         commands.spawn(SpriteComponents {
@@ -423,7 +442,7 @@ fn spawn_dust_particle(
             ..Default::default()
         })
         .with(particle)
-        .with(GravitationalAttraction { is_grounded: false })
+        .with(GravitationalAttraction::default())
         .with(Velocity(Vec2::new(
             0. + x,
             60.,
@@ -446,5 +465,89 @@ fn dust_particle_cleanup_system(
             return;
         }
         commands.despawn(entity);
+    }
+}
+
+fn update_raycast_system(
+    mut r_query: Query<&mut Raycast>,
+    mut query: Query<(&Player, &Translation, &Sprite)>
+) {
+    for (player, p_translation, p_sprite) in &mut query.iter() {
+        for mut raycast in &mut r_query.iter() {
+
+            let direction = player.collision_data.facing_direction;
+            let x = if direction > 0 {
+                p_translation.x() + p_sprite.size.x() / 2.
+            } else {
+                p_translation.x() - raycast.size.x()
+            };
+            
+            raycast.origin = Vec2::new(x, p_translation.y());
+        }
+    }
+}
+
+fn raycast_hit_system(
+    mut r_query: Query<(&mut Player, &Raycast, &mut GravitationalAttraction)>,
+    mut q: Query<(&Wall, &Translation, &Sprite)>,
+) {
+    for (mut player, raycast, mut attraction) in &mut r_query.iter() {
+        player.collision_data.touching_wall = false;
+
+        for (_wall, w_translation, w_sprite) in &mut q.iter() {
+            let collide = collide(raycast.origin.extend(0.), raycast.size, w_translation.0, w_sprite.size);
+            if let Some(collision) = collide {
+                match collision {
+                    Collision::Right => {
+                        player.collision_data.touching_wall = true;
+                    }, 
+                    Collision::Left => {
+                        player.collision_data.touching_wall = true;
+                    },
+                    _ => {},
+                };   
+            }
+        }
+
+        attraction.is_touching_wall = player.collision_data.touching_wall;
+    }
+}
+
+struct Raycast {
+    origin: Vec2,
+    direction: Direction,
+    t: f32,
+    size: Vec2,
+    // t_min: f32,
+    // t_max: f32,
+}
+
+struct RayHit {
+    kind: RayHitKind,
+    t: f32,
+}
+
+#[derive(Clone, Copy, PartialEq)]
+enum RayHitKind {
+    Wall,
+    Ground,
+    Enemy,
+}
+
+enum Direction {
+    Left,
+    Right,
+    Up,
+    Down,
+}
+
+impl Direction {
+    fn get_vector(&self) -> Vec2 {
+        match self {
+            Direction::Left => Vec2::new(-1., 0.),
+            Direction::Right => Vec2::new(1., 0.),
+            Direction::Up => Vec2::new(0., -1.),
+            Direction::Down => Vec2::new(0., 1.),
+        }
     }
 }

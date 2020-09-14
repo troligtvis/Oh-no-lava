@@ -80,7 +80,7 @@ pub fn spawn_projectile_system(
                 time_to_live: Timer::from_seconds(2.0, true),
             })
             .with(ProjectileState::Active)
-            .with(GravitationalAttraction { is_grounded: false })
+            .with(GravitationalAttraction::default())
             .with(Velocity(Vec2::new(
                 projectile_velocity.x() + x,
                 projectile_velocity.y() + y,
