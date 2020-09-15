@@ -5,7 +5,9 @@ use bevy::{self, prelude::*};
 mod furniture;
 mod player;
 mod projectile;
+mod animation;
 mod util;
+mod particles;
 use util::*;
 
 fn main() {
@@ -18,7 +20,7 @@ fn main() {
             ..Default::default()
         })
         .add_default_plugins()
-        .add_plugin(furniture::FurniturePlugin)
+        //.add_plugin(furniture::FurniturePlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(PhysicsPlugin)
         .add_startup_system(setup.system())
@@ -121,10 +123,10 @@ fn gravity_system(
     attraction: &GravitationalAttraction,
     mut velocity: Mut<Velocity>,
 ) {
-    if attraction.is_grounded {
+    if attraction.is_grounded || attraction.is_touching_wall {
         *velocity.0.y_mut() = 0.;
-    } else if !attraction.is_grounded && attraction.is_touching_wall {
-        *velocity.0.y_mut() = -9.82 * 3.; //gravity.0 * 2. * time.delta_seconds
+    // } else if !attraction.is_grounded && attraction.is_touching_wall {
+    //     *velocity.0.y_mut() = -9.82 * 3.; //gravity.0 * 2. * time.delta_seconds
     } else {
         *velocity.0.y_mut() -= gravity.0 * time.delta_seconds;
     }

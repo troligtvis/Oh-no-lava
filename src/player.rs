@@ -5,13 +5,14 @@ use crate::{
         sprite::collide_aabb::{collide, Collision},
         window::CursorMoved,
     },
+    bevy::transform::components::{Transform},
     projectile::*,
     util::*,
+    animation::*,
+    particles::*,
     Collider, Force, GravitationalAttraction, Gravity, SpawnTimer, Speed, Velocity,
-    Wall, Ground,
+    Wall, Ground, 
 };
-
-use rand::{thread_rng, Rng};
 
 const TOTAL_NUMBER_OF_JUMPS: usize = 2;
 const FALL_MULTIPLIER: f32 = 2.5;
@@ -41,16 +42,40 @@ struct KeyboardControls {
     jump: KeyCode,
 }
 
-fn spawn_system(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
+fn spawn_system(
+    mut commands: Commands, 
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    asset_server: Res<AssetServer>,
+    mut textures: ResMut<Assets<Texture>>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,) {
+
+    let texture_handle = asset_server
+        .load_sync(
+            &mut textures,
+            "resources/player_animation.png",
+        )
+        .unwrap();
+    let texture = textures.get(&texture_handle).unwrap();
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 10, 3);
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
     let translation = Translation(Vec3::new(0., -SCR_HEIGHT / 2. + 80., 0.));
+
     commands
-        .spawn(SpriteComponents {
-            material: materials.add(Color::rgba(1., 0., 0., 0.8).into()),
+        .spawn(SpriteSheetComponents {
+            texture_atlas: texture_atlas_handle,
+            scale: Scale(1.0),
             translation,
-            sprite: Sprite {
-                size: Vec2::new(8., 16.),
-                ..Default::default()
+            draw: Draw {
+                is_transparent: true,
+                is_visible: true,
+                render_commands: Vec::new(),
             },
+            ..Default::default()
+        })
+        .with(Timer::from_seconds(0.1, true)) // Anim timer
+        .with(Sprite {
+            size: Vec2::new(32., 32.),
             ..Default::default()
         })
         .with(Player {
@@ -72,11 +97,22 @@ fn spawn_system(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
         .with(GravitationalAttraction::default())
         .with(Velocity(Vec2::zero()))
         .with(Raycast {
-            origin: Vec2::zero(),
+            origin: Vec2::zero(), 
             direction: Direction::Left,
-            t: 4.,
             size: Vec2::new(4., 1.),
         });
+
+        commands.spawn(
+            SpriteComponents {
+                material: materials.add(Color::rgba(1., 0.2, 0., 1.).into()),
+                translation: Translation(Vec3::zero()),
+                sprite: Sprite {
+                    size: Vec2::zero(),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .with(DebugRaycast);
 
     commands
         .spawn(SpriteComponents {
@@ -92,6 +128,26 @@ fn spawn_system(mut commands: Commands, mut materials: ResMut<Assets<ColorMateri
             aim: Vec2::zero(),
             distance: 40.,
         });
+}
+
+fn flip_sprite_system(
+    mut rotation: Mut<Rotation>,
+    player: Mut<Player>,
+) {
+    let pi = std::f32::consts::PI;
+    rotation.0 = if player.collision_data.facing_direction > 0 {
+        if player.collision_data.touching_wall {
+            Quat::from_rotation_y(-pi)
+        } else {
+            Quat::identity()
+        }
+    } else {
+        if player.collision_data.touching_wall {
+            Quat::identity()
+        } else {
+            Quat::from_rotation_y(-pi)
+        }
+    };
 }
 
 fn crosshair_system(
@@ -152,6 +208,8 @@ fn set_aim(a: &Vec2, b: &Vec2, distance: f32, translation: &mut Translation) {
 }
 
 fn jump(velocity: &mut Velocity, player: &mut Player) {
+    if player.num_of_jumps == 0 { return }
+
     player.collision_data.below = false;
 
     // Adjust jump force depending on how many jumps player has already made
@@ -180,15 +238,17 @@ fn wall_jump(velocity: &mut Velocity, player: &mut Player, direction: Vec2) {
 fn player_input_system(
     _time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
+    mut animation: ResMut<Animation>,
     mut query: Query<(
         &mut Player,
         &mut Translation,
         &mut Velocity,
         &mut GravitationalAttraction,
+        &mut Transform,
     )>,
 ) {
-    for (mut player, mut translation, mut velocity, mut attraction) in &mut query.iter() {
-        if keyboard_input.just_pressed(player.controls.jump) && player.num_of_jumps > 0 {
+    for (mut player, mut translation, mut velocity, mut attraction, mut transform) in &mut query.iter() {
+        if keyboard_input.just_pressed(player.controls.jump) {
             attraction.is_grounded = false;
 
             if player.collision_data.below {
@@ -204,6 +264,16 @@ fn player_input_system(
                 *translation.0.x_mut() += 4. * multiplier;
 
                 player.is_wall_jumping = true;
+                player.num_of_jumps = TOTAL_NUMBER_OF_JUMPS;
+
+                player.collision_data.facing_direction = if player.collision_data.left {
+                    1
+                } else {
+                    -1
+                };
+                
+                //transform.set_scale(Vec3::new(2.1, 1., 0.));
+
                 wall_jump(&mut velocity, &mut player, Vec2::new(1. * multiplier, 3.));
             } else {
                 jump(&mut velocity, &mut player);
@@ -248,6 +318,12 @@ fn player_input_system(
             let direction: Vec3 = direction.extend(0.);
             velocity.0.set_x(direction.x());
         }
+
+        animation.current_index = if velocity.0.x().abs() > 0.0 {
+            1
+        } else {
+            0
+        };
     }
 }
 
@@ -386,85 +462,40 @@ impl CollisionData {
 pub struct PlayerPlugin;
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut AppBuilder) {
+        let animation = Animation {
+            data: vec!{
+                AnimationData {
+                    start_index: 0,
+                    frames_count: 4,
+                },
+                AnimationData {
+                    start_index: 10,
+                    frames_count: 5,
+                },
+            },
+            current_index: 0,
+        };
+
         app.add_startup_system(spawn_system.system())
             .init_resource::<MouseState>()
             .add_resource(SpawnTimer {
                 timer: Timer::from_seconds(2.0, true),
             })
+            .add_resource(animation)
+            .add_plugin(AnimationPlugin)
             .add_system(player_collision_system.system())
             .add_system(player_input_system.system())
             .add_system(update_raycast_system.system())
+            .add_system(draw_raycast_gizmo_system.system())
             .add_system(raycast_hit_system.system())
             .add_system(adjust_jump_system.system())
             .add_system(crosshair_system.system())
             .add_system(dust_particle_cleanup_system.system())
+            .add_system(flip_sprite_system.system())
             .add_stage_before(stage::UPDATE, "spawn_projectile")
             .add_stage_after(stage::UPDATE, "shoot_projectile")
             .add_system_to_stage("spawn_projectile", spawn_projectile_system.system())
             .add_system_to_stage("shoot_projectile", shoot_projectile_system.system());
-    }
-}
-
-struct DustParticle {
-    size: Vec2,
-    time_to_live: Timer,
-}
-
-impl Default for DustParticle {
-    fn default() -> Self {
-        Self {
-            size: Vec2::new(2., 2.),
-            time_to_live: Timer::from_seconds(0.3, false),
-        }
-    }
-}
-
-fn spawn_dust_particle(
-    commands: &mut Commands,
-    materials: &mut ResMut<Assets<ColorMaterial>>,
-    position: Vec2,
-) {
-    let upper = 140.;
-    let lower = -140.;
-    let mut rng = thread_rng();
-
-    for _ in 0..5 {
-        let x = rng.gen_range(lower, upper);
-    
-        let particle = DustParticle::default();
-        commands.spawn(SpriteComponents {
-            material: materials.add(Color::rgba(1., 1., 1., 0.6).into()),
-            translation: Translation(position.extend(0.)),
-            sprite: Sprite {
-                size: particle.size,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .with(particle)
-        .with(GravitationalAttraction::default())
-        .with(Velocity(Vec2::new(
-            0. + x,
-            60.,
-        )));
-    }
-}
-
-fn dust_particle_cleanup_system(
-    mut commands: Commands,
-    time: Res<Time>,
-    mut query: Query<(Entity, &mut DustParticle, &mut Sprite)> 
-) {
-    for (entity, mut particle, mut sprite) in &mut query.iter() {
-        particle.time_to_live.tick(time.delta_seconds);
-        if !particle.time_to_live.finished {
-            let procentage =
-                1. - (particle.time_to_live.elapsed) / particle.time_to_live.duration;
-            sprite.size = particle.size * procentage;
-
-            return;
-        }
-        commands.despawn(entity);
     }
 }
 
@@ -479,10 +510,23 @@ fn update_raycast_system(
             let x = if direction > 0 {
                 p_translation.x() + p_sprite.size.x() / 2.
             } else {
-                p_translation.x() - raycast.size.x()
+                p_translation.x() - p_sprite.size.x() / 2.
             };
             
             raycast.origin = Vec2::new(x, p_translation.y());
+        }
+    }
+}
+
+fn draw_raycast_gizmo_system(
+    mut d_query: Query<(&DebugRaycast, &mut Translation, &mut Sprite)>,
+    mut p_query: Query<(&Player, &Raycast)>,
+) {
+    for (_player, raycast) in &mut p_query.iter() {
+        for (_, mut translation, mut sprite) in &mut d_query.iter() {
+            translation.set_x(raycast.origin.x());
+            translation.set_y(raycast.origin.y());
+            sprite.size = raycast.size;
         }
     }
 }
@@ -513,10 +557,49 @@ fn raycast_hit_system(
     }
 }
 
+fn flip_sprite(sprite: &Sprite) {
+
+}
+
+struct DebugRaycast;
+struct DebugRaycastPlugin;
+
+impl Plugin for DebugRaycastPlugin {
+    fn build(&self, app: &mut AppBuilder) {
+        
+    }
+}
+
+fn debug_setup(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>
+) {
+    commands.spawn(
+        SpriteComponents {
+            material: materials.add(Color::rgba(1., 0.2, 0., 1.).into()),
+            translation: Translation(Vec3::zero()),
+            sprite: Sprite {
+                size: Vec2::zero(),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with(DebugRaycast);
+}
+
+fn update_raycast_gizmos_system(
+    mut d_query: Query<&Raycast>,
+    mut query: Query<&Raycast>,
+) {
+    for raycast in &mut query.iter() {
+
+    }
+}
+
 struct Raycast {
     origin: Vec2,
     direction: Direction,
-    t: f32,
+    //t: f32,
     size: Vec2,
     // t_min: f32,
     // t_max: f32,
