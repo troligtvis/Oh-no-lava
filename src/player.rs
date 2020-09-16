@@ -5,7 +5,6 @@ use crate::{
         sprite::collide_aabb::{collide, Collision},
         window::CursorMoved,
     },
-    bevy::transform::components::{Transform},
     projectile::*,
     util::*,
     animation::*,
@@ -17,6 +16,8 @@ use crate::{
 const TOTAL_NUMBER_OF_JUMPS: usize = 2;
 const FALL_MULTIPLIER: f32 = 2.5;
 const LOW_JUMP_MULTIPLIER: f32 = 2.;
+
+struct StretchTimer(Timer);
 
 #[derive(Default)]
 struct MouseState {
@@ -32,6 +33,7 @@ pub struct Player {
     controls: KeyboardControls,
     collision_data: CollisionData,
     is_wall_jumping: bool,
+    did_jump: bool,
 }
 
 struct KeyboardControls {
@@ -59,13 +61,11 @@ fn spawn_system(
     let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 10, 3);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
-    let translation = Translation(Vec3::new(0., -SCR_HEIGHT / 2. + 80., 0.));
 
     commands
         .spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
-            scale: Scale(1.0),
-            translation,
+            transform: Transform::from_translation(Vec3::new(0., -SCR_HEIGHT / 2. + 80., 0.)),
             draw: Draw {
                 is_transparent: true,
                 is_visible: true,
@@ -92,6 +92,7 @@ fn spawn_system(
             },
             collision_data: CollisionData::default(),
             is_wall_jumping: false,
+            did_jump: false,
         })
         .with(Collider::Solid)
         .with(GravitationalAttraction::default())
@@ -100,12 +101,13 @@ fn spawn_system(
             origin: Vec2::zero(), 
             direction: Direction::Left,
             size: Vec2::new(4., 1.),
-        });
+        })
+        .with(StretchTimer(Timer::from_seconds(0.6, false)));
 
         commands.spawn(
             SpriteComponents {
                 material: materials.add(Color::rgba(1., 0.2, 0., 1.).into()),
-                translation: Translation(Vec3::zero()),
+                transform: Transform::from_translation(Vec3::zero()),
                 sprite: Sprite {
                     size: Vec2::zero(),
                     ..Default::default()
@@ -117,7 +119,7 @@ fn spawn_system(
     commands
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(1., 1., 1.).into()),
-            translation: Translation(Vec3::zero()),
+            transform: Transform::from_translation(Vec3::zero()),
             sprite: Sprite {
                 size: Vec2::new(5., 5.),
                 ..Default::default()
@@ -131,13 +133,14 @@ fn spawn_system(
 }
 
 fn flip_sprite_system(
-    mut rotation: Mut<Rotation>,
+    mut transform: Mut<Transform>,
+    // mut rotation: Mut<Rotation>,
     player: Mut<Player>,
 ) {
     let pi = std::f32::consts::PI;
-    rotation.0 = if player.collision_data.facing_direction > 0 {
+    let rotation = if player.collision_data.facing_direction > 0 {
         if player.collision_data.touching_wall {
-            Quat::from_rotation_y(-pi)
+            Quat::from_rotation_y(pi)
         } else {
             Quat::identity()
         }
@@ -145,9 +148,11 @@ fn flip_sprite_system(
         if player.collision_data.touching_wall {
             Quat::identity()
         } else {
-            Quat::from_rotation_y(-pi)
+            Quat::from_rotation_y(pi)
         }
     };
+
+    transform.set_rotation(rotation);
 }
 
 fn crosshair_system(
@@ -155,13 +160,13 @@ fn crosshair_system(
     mut state: ResMut<MouseState>,
     mouse_button_input: Res<Input<MouseButton>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
-    mut query: Query<(&Player, &Translation)>,
-    mut c_query: Query<(&mut Crosshair, &mut Translation, &mut Sprite)>,
+    mut query: Query<(&Player, &Transform)>,
+    mut c_query: Query<(&mut Crosshair, &mut Transform, &mut Sprite)>,
 ) {
     let window_size = get_window_size(windows);
 
-    for (_player, translation) in &mut query.iter() {
-        for (mut crosshair, mut c_translation, _) in &mut c_query.iter() {
+    for (_player, transform) in &mut query.iter() {
+        for (mut crosshair, mut c_transform, _) in &mut c_query.iter() {
             let mut b_receive_event = false;
             for event in state.cursor_moved_event_reader.iter(&cursor_moved_events) {
                 b_receive_event = true;
@@ -170,20 +175,20 @@ fn crosshair_system(
                     event.position - Vec2::new(window_size.width / 2., window_size.height / 2.);
 
                 set_aim(
-                    &translation.0.truncate(),
+                    &transform.translation().truncate(),
                     &cursor_pos,
                     crosshair.distance,
-                    &mut c_translation,
+                    &mut c_transform,
                 );
                 crosshair.aim = cursor_pos;
             }
 
             if !b_receive_event {
                 set_aim(
-                    &translation.0.truncate(),
+                    &transform.translation().truncate(),
                     &crosshair.aim,
                     crosshair.distance,
-                    &mut c_translation,
+                    &mut c_transform,
                 );
             }
         }
@@ -198,13 +203,12 @@ fn crosshair_system(
     }
 }
 
-fn set_aim(a: &Vec2, b: &Vec2, distance: f32, translation: &mut Translation) {
+fn set_aim(a: &Vec2, b: &Vec2, distance: f32, transform: &mut Transform) {
     let direction = get_direction(a, b);
     let norm = direction.normalize() * distance;
     let aim = Vec2::new(a.x() + norm.x(), a.y() + norm.y());
 
-    *translation.x_mut() = aim.x();
-    *translation.y_mut() = aim.y();
+    transform.set_translation(aim.extend(0.));
 }
 
 fn jump(velocity: &mut Velocity, player: &mut Player) {
@@ -235,19 +239,32 @@ fn wall_jump(velocity: &mut Velocity, player: &mut Player, direction: Vec2) {
     // println!("Wall jump");
 }
 
+fn stretch_sprite_system(
+    time: Res<Time>,
+    mut query: Query<(&mut Player, &mut StretchTimer, &mut Transform)>
+) {
+    for (mut player, mut stretch_timer, mut transform) in &mut query.iter() {
+        stretch_timer.0.tick(time.delta_seconds);
+
+        if stretch_timer.0.finished {
+            transform.set_non_uniform_scale(Vec3::one());
+        }
+    }
+}
+
 fn player_input_system(
     _time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
     mut animation: ResMut<Animation>,
     mut query: Query<(
         &mut Player,
-        &mut Translation,
+        &mut StretchTimer,
         &mut Velocity,
         &mut GravitationalAttraction,
         &mut Transform,
     )>,
 ) {
-    for (mut player, mut translation, mut velocity, mut attraction, mut transform) in &mut query.iter() {
+    for (mut player, mut timer, mut velocity, mut attraction, mut transform) in &mut query.iter() {
         if keyboard_input.just_pressed(player.controls.jump) {
             attraction.is_grounded = false;
 
@@ -255,13 +272,24 @@ fn player_input_system(
                 player.collision_data.prev_below = false;
 
                 // Move tha position of the player up a bit to avoid colliding with object before jumping
-                *translation.0.y_mut() = translation.0.y() + 0.2;
+                let mut translation = transform.translation();
+                *translation.y_mut() += 0.2;
+                transform.set_translation(translation);
+
+                timer.0.reset();
+                timer.0.duration = 0.5;
+                
+                transform.set_non_uniform_scale(Vec3::new(0.8, 1.2, 1.)); 
+
                 jump(&mut velocity, &mut player);
+                player.did_jump = true;
             } else if player.collision_data.either_side_collision() && !player.collision_data.below
             {
                 let multiplier = if player.collision_data.right { -1. } else { 1. };
-
-                *translation.0.x_mut() += 4. * multiplier;
+                
+                let mut translation = transform.translation();
+                *translation.x_mut() += 4. * multiplier;
+                transform.set_translation(translation);
 
                 player.is_wall_jumping = true;
                 player.num_of_jumps = TOTAL_NUMBER_OF_JUMPS;
@@ -272,7 +300,6 @@ fn player_input_system(
                     -1
                 };
                 
-                //transform.set_scale(Vec3::new(2.1, 1., 0.));
 
                 wall_jump(&mut velocity, &mut player, Vec2::new(1. * multiplier, 3.));
             } else {
@@ -356,29 +383,26 @@ fn player_collision_system(
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut player_query: Query<(
         &mut Player,
-        &mut Translation,
+        &mut Transform,
         &mut Velocity,
         &mut GravitationalAttraction,
         &Sprite,
     )>,
-    mut collider_query: Query<(&Collider, Without<Player, &Velocity>, &Translation, &Sprite)>,
+    mut collider_query: Query<(&Collider, Without<Player, &Velocity>, &Transform, &Sprite)>,
 ) {
-    for (mut player, mut player_translation, mut velocity, mut attraction, sprite) in
+    for (mut player, mut p_transform, mut velocity, mut attraction, sprite) in
         &mut player_query.iter()
     {
         let player_size = sprite.size;
-        let check_translation = Translation::new(
-            player_translation.x(), 
-            player_translation.0.y() - 0.2, 
-            0.
-        );
+        let mut check_translation = p_transform.translation();
+        *check_translation.y_mut() -= 0.2;
 
         attraction.is_grounded = false;
 
         player.collision_data.reset();
 
-        for (_collider, c_velocity, translation, sprite) in &mut collider_query.iter() {
-            let collision = collide(translation.0, sprite.size, check_translation.0, player_size);
+        for (_collider, c_velocity, transform, sprite) in &mut collider_query.iter() {
+            let collision = collide(transform.translation(), sprite.size, check_translation, player_size);
             if let Some(collision) = collision {
                 match collision {
                     Collision::Bottom => {
@@ -386,32 +410,36 @@ fn player_collision_system(
                         player.collision_data.below = true;
                         player.is_wall_jumping = false;
 
+                        //p_transform.set_scale(Vec3::new(1., 1., 1.));
+                        p_transform.set_non_uniform_scale(Vec3::one()); 
+
                         if !player.collision_data.prev_below {
                             player.collision_data.prev_below = true;
-                            let mut position = player_translation.0.truncate();
+                            let mut position = p_transform.translation().truncate();
                             *position.y_mut() -= player_size.y() / 2.; 
                             spawn_dust_particle(&mut commands, &mut materials, position);
                         }
 
-                        // Adjust player to be on top of platform
-                        player_translation.0.set_y(
-                            translation.y() + sprite.size.y() / 2. + player_size.y() / 2. + 0.1,
-                        );
+                        // Adjust player to be on top of platform 
+                        let mut translation = p_transform.translation();
+                        *translation.y_mut() = transform.translation().y() + sprite.size.y() / 2. + player_size.y() / 2. + 0.1;
+                        p_transform.set_translation(translation);
+                        
                         player.num_of_jumps = TOTAL_NUMBER_OF_JUMPS;
                         // Set players velocity the same as the platform
                         *velocity.0.x_mut() = velocity.0.x() + c_velocity.0.x();
                     }
                     Collision::Right => {
-                        player_translation.0.set_x(
-                            translation.0.x() - sprite.size.x() / 2. - player_size.x() / 2. + 0.1,
-                        );
+                        let mut translation = p_transform.translation();
+                        *translation.x_mut() = transform.translation().x() - sprite.size.x() / 2. - player_size.x() / 2. + 0.1;
+                        p_transform.set_translation(translation);
 
                         player.collision_data.right = true
                     }
                     Collision::Left => {
-                        player_translation.0.set_x(
-                            translation.0.x() + sprite.size.x() / 2. + player_size.x() / 2. - 0.1,
-                        );
+                        let mut translation = p_transform.translation();
+                        *translation.x_mut() = transform.translation().x() + sprite.size.x() / 2. + player_size.x() / 2. - 0.1;
+                        p_transform.set_translation(translation);
 
                         player.collision_data.left = true;
                     }
@@ -491,41 +519,45 @@ impl Plugin for PlayerPlugin {
             .add_system(adjust_jump_system.system())
             .add_system(crosshair_system.system())
             .add_system(dust_particle_cleanup_system.system())
+            .add_system(stretch_sprite_system.system())
             .add_system(flip_sprite_system.system())
             .add_stage_before(stage::UPDATE, "spawn_projectile")
             .add_stage_after(stage::UPDATE, "shoot_projectile")
             .add_system_to_stage("spawn_projectile", spawn_projectile_system.system())
-            .add_system_to_stage("shoot_projectile", shoot_projectile_system.system());
+            .add_system_to_stage("shoot_projectile", shoot_projectile_system.system())
+            ;
     }
 }
 
 fn update_raycast_system(
     mut r_query: Query<&mut Raycast>,
-    mut query: Query<(&Player, &Translation, &Sprite)>
+    mut query: Query<(&Player, &Transform, &Sprite)>
 ) {
-    for (player, p_translation, p_sprite) in &mut query.iter() {
+    for (player, p_transform, p_sprite) in &mut query.iter() {
         for mut raycast in &mut r_query.iter() {
 
             let direction = player.collision_data.facing_direction;
             let x = if direction > 0 {
-                p_translation.x() + p_sprite.size.x() / 2.
+                p_transform.translation().x() + p_sprite.size.x() / 2.
             } else {
-                p_translation.x() - p_sprite.size.x() / 2.
+                p_transform.translation().x() - p_sprite.size.x() / 2.
             };
             
-            raycast.origin = Vec2::new(x, p_translation.y());
+            raycast.origin = Vec2::new(x, p_transform.translation().y());
         }
     }
 }
 
 fn draw_raycast_gizmo_system(
-    mut d_query: Query<(&DebugRaycast, &mut Translation, &mut Sprite)>,
+    mut d_query: Query<(&DebugRaycast, &mut Transform, &mut Sprite)>,
     mut p_query: Query<(&Player, &Raycast)>,
 ) {
     for (_player, raycast) in &mut p_query.iter() {
-        for (_, mut translation, mut sprite) in &mut d_query.iter() {
-            translation.set_x(raycast.origin.x());
-            translation.set_y(raycast.origin.y());
+        for (_, mut transform, mut sprite) in &mut d_query.iter() {
+            transform.set_translation(raycast.origin.extend(0.));
+            // transform.translate(raycast.origin.extend(0.));
+            // translation.set_x(raycast.origin.x());
+            // translation.set_y(raycast.origin.y());
             sprite.size = raycast.size;
         }
     }
@@ -533,13 +565,13 @@ fn draw_raycast_gizmo_system(
 
 fn raycast_hit_system(
     mut r_query: Query<(&mut Player, &Raycast, &mut GravitationalAttraction)>,
-    mut q: Query<(&Wall, &Translation, &Sprite)>,
+    mut q: Query<(&Wall, &Transform, &Sprite)>,
 ) {
     for (mut player, raycast, mut attraction) in &mut r_query.iter() {
         player.collision_data.touching_wall = false;
 
-        for (_wall, w_translation, w_sprite) in &mut q.iter() {
-            let collide = collide(raycast.origin.extend(0.), raycast.size, w_translation.0, w_sprite.size);
+        for (_wall, w_transform, w_sprite) in &mut q.iter() {
+            let collide = collide(raycast.origin.extend(0.), raycast.size, w_transform.translation(), w_sprite.size);
             if let Some(collision) = collide {
                 match collision {
                     Collision::Right => {
@@ -555,10 +587,6 @@ fn raycast_hit_system(
 
         attraction.is_touching_wall = player.collision_data.touching_wall;
     }
-}
-
-fn flip_sprite(sprite: &Sprite) {
-
 }
 
 struct DebugRaycast;
@@ -577,7 +605,7 @@ fn debug_setup(
     commands.spawn(
         SpriteComponents {
             material: materials.add(Color::rgba(1., 0.2, 0., 1.).into()),
-            translation: Translation(Vec3::zero()),
+            transform: Transform::from_translation(Vec3::zero()),
             sprite: Sprite {
                 size: Vec2::zero(),
                 ..Default::default()

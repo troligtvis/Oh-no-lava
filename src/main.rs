@@ -35,7 +35,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
-            translation: Translation(Vec3::new(0., -SCR_HEIGHT / 2., 0.)),
+            transform: Transform::from_translation(Vec3::new(0., -SCR_HEIGHT / 2., 0.)),
             sprite: Sprite {
                 size: Vec2::new(SCR_WIDTH, 20.),
                 ..Default::default()
@@ -50,7 +50,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.8, 0.8).into()),
-            translation: Translation(Vec3::new(SCR_WIDTH / 2. - 100., -SCR_HEIGHT / 2., 0.)),
+            transform: Transform::from_translation(Vec3::new(SCR_WIDTH / 2. - 100., -SCR_HEIGHT / 2., 0.)),
             sprite: Sprite {
                 size: Vec2::new(20., SCR_HEIGHT),
                 ..Default::default()
@@ -64,7 +64,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     commands
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.8, 0.8).into()),
-            translation: Translation(Vec3::new(-SCR_WIDTH / 2. + 100., -SCR_HEIGHT / 2., 0.)),
+            transform: Transform::from_translation(Vec3::new(-SCR_WIDTH / 2. + 100., -SCR_HEIGHT / 2., 0.)),
             sprite: Sprite {
                 size: Vec2::new(20., SCR_HEIGHT),
                 ..Default::default()
@@ -132,9 +132,8 @@ fn gravity_system(
     }
 }
 
-fn velocity_system(time: Res<Time>, mut position: Mut<Translation>, velocity: Mut<Velocity>) {
+fn velocity_system(time: Res<Time>, mut transform: Mut<Transform>, velocity: Mut<Velocity>) {
     let dt = time.delta_seconds;
 
-    *position.0.x_mut() += velocity.0.x() * dt;
-    *position.0.y_mut() += velocity.0.y() * dt;
+    transform.translate(velocity.0.extend(0.) * dt);
 }

@@ -46,7 +46,7 @@ pub fn spawn_projectile_system(
     mut commands: Commands,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mouse_button_input: Res<Input<MouseButton>>,
-    mut query: Query<(&Crosshair, &Translation)>,
+    mut query: Query<(&Crosshair, &Transform)>,
 ) {
     if !mouse_button_input.just_pressed(MouseButton::Left) {
         return;
@@ -54,8 +54,8 @@ pub fn spawn_projectile_system(
 
     // TOdo add timer as well to not shoot too fast
 
-    for (crosshair, translation) in &mut query.iter() {
-        let direction = get_direction(&translation.0.truncate(), &crosshair.aim);
+    for (crosshair, transform) in &mut query.iter() {
+        let direction = get_direction(&transform.translation().truncate(), &crosshair.aim);
 
         let projectile_velocity = direction.normalize() * 200.;
 
@@ -68,7 +68,7 @@ pub fn spawn_projectile_system(
         commands
             .spawn(SpriteComponents {
                 material: materials.add(Color::rgb(0.1, 0.5, 0.8).into()),
-                translation: Translation(translation.0),
+                transform: Transform::from_translation(transform.translation().clone()),
                 sprite: Sprite {
                     size: Vec2::new(5., 5.),
                     ..Default::default()

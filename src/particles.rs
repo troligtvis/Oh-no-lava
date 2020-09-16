@@ -33,7 +33,7 @@ pub fn spawn_dust_particle(
         let particle = DustParticle::default();
         commands.spawn(SpriteComponents {
             material: materials.add(Color::rgba(1., 1., 1., 0.6).into()),
-            translation: Translation(position.extend(0.)),
+            transform: Transform::from_translation(position.extend(0.)),
             sprite: Sprite {
                 size: particle.size,
                 ..Default::default()

@@ -49,7 +49,7 @@ fn spawn_furniture_system(
     commands
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(r, g, b).into()),
-            translation: Translation(Vec3::new(
+            transform: Transform::from_translation(Vec3::new(
                 SCR_WIDTH / 2. + 200.,
                 -SCR_HEIGHT / 2. + furniture.size.y() / 2.,
                 0.,
@@ -70,12 +70,12 @@ fn spawn_furniture_system(
 fn despawn_furniture_system(
     mut commands: Commands,
     windows: Res<Windows>,
-    mut query: Query<(Entity, &Translation, &Despawnable)>,
+    mut query: Query<(Entity, &Transform, &Despawnable)>,
 ) {
     let window_size = get_window_size(windows);
 
-    for (entity, translation, _despawnable) in &mut query.iter() {
-        if translation.0.x() < -window_size.width / 2. - 200. {
+    for (entity, transform, _despawnable) in &mut query.iter() {
+        if transform.translation().x() < -window_size.width / 2. - 200. {
             commands.despawn(entity);
             //println!("Despawn furniture");
         }
