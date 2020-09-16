@@ -399,6 +399,7 @@ fn player_collision_system(
 
         attraction.is_grounded = false;
 
+        let prev_side_collision = player.collision_data.either_side_collision();
         player.collision_data.reset();
 
         for (_collider, c_velocity, transform, sprite) in &mut collider_query.iter() {
@@ -406,12 +407,11 @@ fn player_collision_system(
             if let Some(collision) = collision {
                 match collision {
                     Collision::Bottom => {
+                        //if prev_side_collision { return }
+
                         attraction.is_grounded = true;
                         player.collision_data.below = true;
-                        player.is_wall_jumping = false;
-
-                        //p_transform.set_scale(Vec3::new(1., 1., 1.));
-                        p_transform.set_non_uniform_scale(Vec3::one()); 
+                        player.is_wall_jumping = false; 
 
                         if !player.collision_data.prev_below {
                             player.collision_data.prev_below = true;
@@ -426,7 +426,7 @@ fn player_collision_system(
                         p_transform.set_translation(translation);
                         
                         player.num_of_jumps = TOTAL_NUMBER_OF_JUMPS;
-                        // Set players velocity the same as the platform
+                        // // Set players velocity the same as the platform
                         *velocity.0.x_mut() = velocity.0.x() + c_velocity.0.x();
                     }
                     Collision::Right => {
@@ -434,12 +434,16 @@ fn player_collision_system(
                         *translation.x_mut() = transform.translation().x() - sprite.size.x() / 2. - player_size.x() / 2. + 0.1;
                         p_transform.set_translation(translation);
 
+                        // *velocity.0.x_mut() = velocity.0.x() + c_velocity.0.x();
+
                         player.collision_data.right = true
                     }
                     Collision::Left => {
                         let mut translation = p_transform.translation();
                         *translation.x_mut() = transform.translation().x() + sprite.size.x() / 2. + player_size.x() / 2. - 0.1;
                         p_transform.set_translation(translation);
+
+                        // *velocity.0.x_mut() = velocity.0.x() + c_velocity.0.x();
 
                         player.collision_data.left = true;
                     }
@@ -564,20 +568,18 @@ fn draw_raycast_gizmo_system(
 }
 
 fn raycast_hit_system(
-    mut r_query: Query<(&mut Player, &Raycast, &mut GravitationalAttraction)>,
-    mut q: Query<(&Wall, &Transform, &Sprite)>,
+    mut r_query: Query<(&mut Player, &mut Transform, &Sprite, &mut Velocity, &Raycast, &mut GravitationalAttraction)>,
+    mut q: Query<(&Wall, &Transform, &Velocity, &Sprite)>,
 ) {
-    for (mut player, raycast, mut attraction) in &mut r_query.iter() {
+    for (mut player, mut p_transform, p_sprite, mut p_velocity, raycast, mut attraction) in &mut r_query.iter() {
         player.collision_data.touching_wall = false;
-
-        for (_wall, w_transform, w_sprite) in &mut q.iter() {
+        let player_size = p_sprite.size;
+        for (_wall, w_transform, w_velocity, w_sprite) in &mut q.iter() {
             let collide = collide(raycast.origin.extend(0.), raycast.size, w_transform.translation(), w_sprite.size);
             if let Some(collision) = collide {
                 match collision {
-                    Collision::Right => {
-                        player.collision_data.touching_wall = true;
-                    }, 
-                    Collision::Left => {
+                    Collision::Left | Collision::Right => {  
+                        //*p_velocity.0.x_mut() = p_velocity.0.x() + w_velocity.0.x();
                         player.collision_data.touching_wall = true;
                     },
                     _ => {},
