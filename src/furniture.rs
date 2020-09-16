@@ -1,4 +1,4 @@
-use crate::{bevy::prelude::*, util::*, Collider, Despawnable, SpawnTimer, Speed, Velocity};
+use crate::{bevy::prelude::*, util::*, Collider, Despawnable, SpawnTimer, Speed, Velocity, Wall};
 
 use rand::{thread_rng, Rng};
 
@@ -62,6 +62,7 @@ fn spawn_furniture_system(
         })
         .with(Velocity(Vec2::new(-spawn_options.speed.0, 0.)))
         .with(Collider::Solid)
+        .with(Wall)
         .with(Despawnable);
 
     //println!("Spawn furniture");
@@ -89,36 +90,36 @@ impl Plugin for FurniturePlugin {
         let furnitures = vec![
             Furniture {
                 shape: FurnitureShape::Chair,
-                size: Vec2::new(20., 36.),
+                size: Vec2::new(32., 136.),
             },
             Furniture {
                 shape: FurnitureShape::Table,
-                size: Vec2::new(64., 28.),
+                size: Vec2::new(84., 128.),
             },
             Furniture {
                 shape: FurnitureShape::Sofa,
-                size: Vec2::new(64., 36.),
+                size: Vec2::new(84., 136.),
             },
             Furniture {
                 shape: FurnitureShape::Refrigerator,
-                size: Vec2::new(44., 68.),
+                size: Vec2::new(54., 168.),
             },
             Furniture {
                 shape: FurnitureShape::TV,
-                size: Vec2::new(52., 32.),
+                size: Vec2::new(72., 132.),
             },
             Furniture {
                 shape: FurnitureShape::Lamp,
-                size: Vec2::new(32., 44.),
+                size: Vec2::new(42., 144.),
             },
         ];
 
         app.add_resource(SpawnTimer {
-            timer: Timer::from_seconds(2.0, true),
+            timer: Timer::from_seconds(0.1, true),
         })
         .add_resource(FurnitureSpawnOptions {
-            min_time: 1.9,
-            max_time: 3.2,
+            min_time: 2.9,
+            max_time: 4.2,
             speed: Speed(68.),
         })
         .add_resource(furnitures)

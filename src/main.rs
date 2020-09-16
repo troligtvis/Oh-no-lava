@@ -20,7 +20,7 @@ fn main() {
             ..Default::default()
         })
         .add_default_plugins()
-        //.add_plugin(furniture::FurniturePlugin)
+        .add_plugin(furniture::FurniturePlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(PhysicsPlugin)
         .add_startup_system(setup.system())
