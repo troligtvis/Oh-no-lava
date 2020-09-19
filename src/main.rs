@@ -20,7 +20,7 @@ fn main() {
             ..Default::default()
         })
         .add_default_plugins()
-        .add_plugin(furniture::FurniturePlugin)
+        // .add_plugin(furniture::FurniturePlugin)
         .add_plugin(player::PlayerPlugin)
         .add_plugin(PhysicsPlugin)
         .add_startup_system(setup.system())
@@ -52,27 +52,47 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             material: materials.add(Color::rgb(0.2, 0.8, 0.8).into()),
             transform: Transform::from_translation(Vec3::new(SCR_WIDTH / 2. - 100., -SCR_HEIGHT / 2., 0.)),
             sprite: Sprite {
-                size: Vec2::new(20., SCR_HEIGHT),
+                size: Vec2::new(40., SCR_HEIGHT),
                 ..Default::default()
             },
             ..Default::default()
         })
         .with(Velocity(Vec2::zero()))
         .with(Collider::Solid)
-        .with(Wall);
+        .with(Wall)
+        .with(Ground);
 
     commands
         .spawn(SpriteComponents {
             material: materials.add(Color::rgb(0.2, 0.8, 0.8).into()),
             transform: Transform::from_translation(Vec3::new(-SCR_WIDTH / 2. + 100., -SCR_HEIGHT / 2., 0.)),
             sprite: Sprite {
-                size: Vec2::new(20., SCR_HEIGHT),
+
+                size: Vec2::new(40., SCR_HEIGHT),
                 ..Default::default()
             },
             ..Default::default()
         })
         .with(Velocity(Vec2::zero()))
         .with(Collider::Solid)
+        .with(Ground)
+        .with(Wall);
+
+    commands
+        .spawn(SpriteComponents {
+            material: materials.add(Color::rgb(0.2, 0.6, 0.6).into()),
+            transform: Transform::from_translation(Vec3::new(0., -SCR_HEIGHT + 80., 0.)),
+            // x1: -32, x2: 32
+            // y1: , y2:
+            sprite: Sprite {
+                size: Vec2::new(64., SCR_HEIGHT),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with(Velocity(Vec2::zero()))
+        .with(Collider::Solid)
+        .with(Ground)
         .with(Wall);
 }
 
