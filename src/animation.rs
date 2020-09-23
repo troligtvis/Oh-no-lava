@@ -1,24 +1,38 @@
 use crate::{bevy::prelude::*};
 use std::collections::HashMap;
 
-pub trait AnimationStateDescriptor {
+pub enum AnimCommonState {
+    Idle,
+    Run,
+}
+
+impl AnimStateDescriptor for AnimCommonState {
+    fn name(&self) -> &str {
+        match self {
+            Self::Idle => "idle",
+            Self::Run => "run",
+        }
+    }
+}
+
+pub trait AnimStateDescriptor {
     fn name(&self) -> &str;
 }
 
 pub struct Animation {
-    data: HashMap<String, AnimationData>,
+    data: HashMap<String, AnimData>,
     current_anim: String,
 }
 
 impl Animation {
-    pub fn new(data: Vec<AnimationData>, start_anim: &str) -> Self {
+    pub fn new(data: Vec<AnimData>, start_anim: &str) -> Self {
         Self {
             data: data.into_iter().map(|x| (x.get_name(), x)).into_iter().collect(),
             current_anim: start_anim.to_string(), 
         }
     }
 
-    fn get_current_data(&self) -> Option<&AnimationData> {
+    fn get_current_data(&self) -> Option<&AnimData> {
         self.data.get(&self.current_anim)
     }
 
@@ -27,13 +41,13 @@ impl Animation {
     }
 }
 
-pub struct AnimationData {
+pub struct AnimData {
     name: String,
     start_index: usize,
     frames_count: usize,
 }
 
-impl AnimationData {
+impl AnimData {
     pub fn new(name: &str, start_index: usize, frames_count: usize) -> Self {
         Self {
             name: name.to_string(),
@@ -68,6 +82,15 @@ pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut AppBuilder) {
-        app.add_system(animate_sprite_system.system());
+        app.add_resource(
+            Animation::new(
+                vec!{
+                    AnimData::new(AnimCommonState::Idle.name(), 0, 4),
+                    AnimData::new(AnimCommonState::Run.name(), 10, 5),
+                },
+                AnimCommonState::Idle.name()
+            )
+        )
+        .add_system(animate_sprite_system.system());
     }
 }
