@@ -2,15 +2,15 @@ use bevy::prelude::*;
 use bevy::sprite::collide_aabb::Collision;
 // use std::collections::HashMap;
 
-pub struct CollisionEvent {
+pub struct GroundCollisionEvent {
     pub hit_collision: Collision, 
     pub hit_transform: Transform,
     pub hit_size: Vec2,
 }
 
 #[derive(Default)]
-pub struct ContactListenerState {
-    pub event_reader: EventReader<CollisionEvent>,
+pub struct GroundContactListenerState {
+    pub event_reader: EventReader<GroundCollisionEvent>,
 }
 
 pub struct ShootEvent;

@@ -22,10 +22,6 @@ fn flip_sprite(
     transform: &mut Transform,
     direction: f32,
 ) {
-    if direction == 0. {
-        return
-    }
-
     let pi = std::f32::consts::PI;
     let rotation = if direction > 
     0. {
@@ -37,6 +33,17 @@ fn flip_sprite(
     transform.set_rotation(rotation);
 }
 
+///
+fn clamp(x: f32, min: f32, max: f32) -> f32 {
+    if x > 0. {
+        max
+    } else if x < 0. {
+        min
+    } else {
+        0.
+    }
+}
+
 pub fn process_commands_system(
     mut jump_command_event: ResMut<Events<res::JumpEvent>>,
     mut animation: ResMut<Animation>,
@@ -45,16 +52,22 @@ pub fn process_commands_system(
         &mut physics::Velocity,
         &mut Transform,
         &stats::MovementSpeed,
+        &mut stats::Facing,
     )>,
 ) {
-    for (mut controller, mut velocity, mut transform, speed) in &mut query.iter() {
+    for (mut controller, mut velocity, mut transform, speed, mut facing) in &mut query.iter() {
         let movement = if controller.movement.x() + controller.movement.y() != 0.0 {
             controller.movement.normalize()
         } else {
             controller.movement
         };
 
-        flip_sprite(&mut transform, movement.x());
+        let facing_direction =  clamp(movement.x(), -1., 1.);
+        if facing_direction != 0. {
+            facing.0 = facing_direction;
+
+            flip_sprite(&mut transform, facing_direction);
+        }
 
         for command in controller.action.drain(..) {
             match command {

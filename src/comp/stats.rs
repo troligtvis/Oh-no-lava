@@ -10,5 +10,13 @@ pub struct MovementSpeed {
 pub struct JumpForce(pub f32);
 
 #[derive(Debug, Default, Properties)]
-pub struct Grounded(pub bool);
+pub struct Grounded(pub bool); // Move into physics.rs ? :shrug:
 
+#[derive(Debug, Default, Properties)]
+pub struct Wall;
+
+#[derive(Debug, Default, Properties)]
+pub struct Ground;
+
+#[derive(Debug, Default, Properties)]
+pub struct Facing(pub f32);

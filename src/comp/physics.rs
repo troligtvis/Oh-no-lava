@@ -1,4 +1,5 @@
 use bevy::prelude::*;
+use bevy::sprite::collide_aabb::{collide, Collision};
 use std::ops::{Deref, DerefMut};
 
 /// This component represents entity's velocity.
@@ -84,5 +85,83 @@ impl Default for CollisionData {
             top: false,
             below: false,
         }
+    }
+}
+
+#[derive(Debug, Properties)]
+pub struct Raycast {
+    /// Starting point of the raycast.
+    pub origin: Vec2,
+
+    /// Direction; does not need to be normalized. All distance (`t`) values considered
+    /// are multiplicative over this, meaning that a raycast in the direction `[1, 0]` returning `t = 2`
+    /// must be equivalent to a raycast in the direction `[2, 0]` returning `t = 1`.
+    pub direction: Vec2,
+
+    /// The raycast should ignore anything before this `t`.
+    pub t_min: f32,
+
+    /// The raycast should ignore anything after this `t`.
+    pub t_max: f32,
+}
+
+impl Raycast {
+    pub fn down() -> Self {
+        Self {
+            origin: Vec2::zero(),
+            direction: Vec2::new(0., -1.),
+            t_min: 8.,
+            t_max: 12.,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub enum Direction {
+    Left,
+    Right,
+    Up, 
+    Down, 
+}
+
+impl Direction {
+    pub fn into_direction(dir: Vec2) -> Direction {
+        if dir == Vec2::new(-1., 0.) {
+            Direction::Left
+        } else if dir == Vec2::new(1., 0.) {
+            Direction::Right
+        } else if dir == Vec2::new(0., 1.) {
+            Direction::Up
+        } else {
+            Direction::Down
+        }
+    }
+}
+
+pub struct GroundRaycasts(pub Vec<Raycast>);
+
+impl GroundRaycasts {
+    fn check_collision_for(&mut self, position: Vec2, body: Vec2) -> bool {
+
+        let mut found_collision = false;
+        for raycast in &mut self.0.iter() {
+            let magnitude = raycast.t_max - raycast.t_min;
+
+            let direction= Direction::into_direction(raycast.direction);
+
+            let size = match direction {
+                Direction::Left | Direction::Right => Vec2::new(magnitude, 1.),
+                Direction::Up | Direction::Down => Vec2::new(1., magnitude),
+            };
+
+            if let Some(collision) = collide(position.extend(0.), body, raycast.origin.extend(0.), size) {
+                match collision {
+                    Collision::Top => found_collision = true,
+                    _ => {},
+                };
+            }
+        };
+
+        found_collision
     }
 }

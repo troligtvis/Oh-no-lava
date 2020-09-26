@@ -104,7 +104,21 @@ fn setup_scene(
         })
         .with(comp::physics::CollisionData::default())
         .with(comp::stats::Grounded(false))
-        .with(comp::physics::GravitationalAttraction::default());
+        .with(comp::physics::GravitationalAttraction::default())
+        .with(comp::physics::Raycast {
+            origin: Vec2::zero(),
+            direction: Vec2::new(1., 0.),
+            t_min: 8., // Half player size
+            t_max: 12.,
+        })
+        .with(comp::physics::GroundRaycasts(
+            vec![
+                comp::physics::Raycast::down(),
+                comp::physics::Raycast::down(),
+                comp::physics::Raycast::down(),
+            ],
+        ))
+        .with(comp::stats::Facing(1.));
 }
 
 fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -127,7 +141,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             w: SCR_WIDTH,
             h: 20.,
         })
-        .with(Ground);
+        .with(comp::stats::Ground);
 
     // Walls
     commands
@@ -142,12 +156,12 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         })
         .with(comp::physics::Velocity::default())
         .with(Collider::Solid)
-        .with(Wall)
+        .with(comp::stats::Wall)
         .with(comp::physics::ColliderBox {
             w: 40.,
             h: SCR_HEIGHT,
         })
-        .with(Ground);
+        .with(comp::stats::Ground);
 
     commands
         .spawn(SpriteComponents {
@@ -162,12 +176,12 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         })
         .with(comp::physics::Velocity::default())
         .with(Collider::Solid)
-        .with(Ground)
+        .with(comp::stats::Ground)
         .with(comp::physics::ColliderBox {
             w: 40.,
             h: SCR_HEIGHT,
         })
-        .with(Wall);
+        .with(comp::stats::Wall);
 
     commands
         .spawn(SpriteComponents {
@@ -183,12 +197,12 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         })
         .with(comp::physics::Velocity::default())
         .with(Collider::Solid)
-        .with(Ground)
+        .with(comp::stats::Ground)
         .with(comp::physics::ColliderBox {
             w: 64.,
             h: SCR_HEIGHT,
         })
-        .with(Wall);
+        .with(comp::stats::Wall);
 }
 
 pub struct SpawnTimer {
@@ -199,38 +213,3 @@ pub struct SpawnTimer {
 enum Collider {
     Solid,
 }
-
-pub struct Ground;
-pub struct Wall;
-
-pub struct Speed(f32);
-pub struct Force(f32);
-
-// pub struct PhysicsPlugin;
-// impl Plugin for PhysicsPlugin {
-//     fn build(&self, app: &mut AppBuilder) {
-//         app.add_system(velocity_system.system())
-//             .add_system(gravity_system.system());
-//     }
-// }
-
-// fn gravity_system(
-//     gravity: Res<Gravity>,
-//     time: Res<Time>,
-//     attraction: &GravitationalAttraction,
-//     mut velocity: Mut<Velocity>,
-// ) {
-//     if attraction.is_grounded || attraction.is_touching_wall {
-//         *velocity.0.y_mut() = 0.;
-//     // } else if !attraction.is_grounded && attraction.is_touching_wall {
-//     //     *velocity.0.y_mut() = -9.82 * 3.; //gravity.0 * 2. * time.delta_seconds
-//     } else {
-//         *velocity.0.y_mut() -= gravity.0 * time.delta_seconds;
-//     }
-// }
-
-// fn velocity_system(time: Res<Time>, mut transform: Mut<Transform>, velocity: Mut<Velocity>) {
-//     let dt = time.delta_seconds;
-
-//     transform.translate(velocity.0.extend(0.) * dt);
-// }

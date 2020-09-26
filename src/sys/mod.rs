@@ -11,7 +11,7 @@ pub struct GameLogicPlugin;
 impl Plugin for GameLogicPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app
-            .init_resource::<res::ContactListenerState>()
+            .init_resource::<res::GroundContactListenerState>()
             .add_plugin(actor::GameActorPlugin)
             .add_plugin(physics::GamePhysicsPlugin)
             .add_plugin(player::PlayerPlugin)
