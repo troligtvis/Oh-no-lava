@@ -16,9 +16,7 @@ impl Plugin for GamePhysicsPlugin {
             .add_system_to_stage("stage::GroundCheck", player_collision_system.system())
             .add_stage_after(stage::PRE_UPDATE, "stage::Raycast")
             .add_system_to_stage("stage::Raycast", update_raycast.system())
-            .add_system_to_stage("stage::Raycast", shoot_raycast.system())
-            
-            ;
+            .add_system_to_stage("stage::Raycast", shoot_raycast.system());
     }
 }
 
@@ -121,7 +119,7 @@ pub fn shoot_raycast(
 
         let size = Vec2::new(12., 1.);
 
-        attraction.is_active = true;
+        //attraction.is_active = true;
         
         for (other_transform, other_box) in &mut query2.iter() {
             if let Some(collision) = collide(position, size, other_transform.translation(), other_box.get_size()) {

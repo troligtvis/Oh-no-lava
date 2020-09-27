@@ -33,3 +33,7 @@ pub struct CrosshairController {
     pub aim: Vec2,
     pub distance: f32,
 }
+
+pub struct Projectile {
+    pub direction: Vec2,
+}

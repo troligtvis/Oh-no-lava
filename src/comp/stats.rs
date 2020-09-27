@@ -20,3 +20,6 @@ pub struct Ground;
 
 #[derive(Debug, Default, Properties)]
 pub struct Facing(pub f32);
+
+#[derive(Debug, Default, Properties)]
+pub struct TimeToLive(pub Timer);

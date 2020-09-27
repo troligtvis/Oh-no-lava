@@ -2,50 +2,31 @@ use bevy::prelude::*;
 use crate::comp::{actor, physics, stats};
 use crate::res;
 use crate::animation::{Animation, AnimCommonState, AnimStateDescriptor};
+use crate::util;
+
+use rand::{thread_rng, Rng};
 
 pub struct GameActorPlugin;
 
 impl Plugin for GameActorPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<res::JumpEvent>()
+            .add_event::<res::ShootEvent>()
             .init_resource::<res::JumpListenerState>()
+            .init_resource::<res::ShootListenerState>()
             .add_system(process_commands_system.system())
-            .add_stage_before(stage::PRE_UPDATE, "stage::Jumping")
-            .add_system_to_stage("stage::Jumping", jump_system.system());
-        //     .add_system(weapon_shoot_system.system())
-        //     .add_system(weapon_reload_system.system());
+            .add_system_to_stage(stage::EVENT_UPDATE, jump_system.system())
+            .add_system(process_crosshair_system.system())
+            .add_system(shoot_projectile_system.system())
+            .add_system_to_stage(stage::POST_UPDATE, clean_projectile_system.system());
     }
 }
 
-/// Flip the transform depending on facing direction
-fn flip_sprite(
-    transform: &mut Transform,
-    direction: f32,
-) {
-    let pi = std::f32::consts::PI;
-    let rotation = if direction > 
-    0. {
-        Quat::identity()
-    } else {
-        Quat::from_rotation_y(pi)
-    };
-
-    transform.set_rotation(rotation);
-}
-
-///
-fn clamp(x: f32, min: f32, max: f32) -> f32 {
-    if x > 0. {
-        max
-    } else if x < 0. {
-        min
-    } else {
-        0.
-    }
-}
+// MARK - Systems
 
 pub fn process_commands_system(
     mut jump_command_event: ResMut<Events<res::JumpEvent>>,
+    mut shoot_command_event: ResMut<Events<res::ShootEvent>>,
     mut animation: ResMut<Animation>,
     mut query: Query<(
         &mut actor::Controller,
@@ -72,7 +53,7 @@ pub fn process_commands_system(
         for command in controller.action.drain(..) {
             match command {
                 actor::ControllerAction::Shoot => {
-                    // Add event
+                    shoot_command_event.send(res::ShootEvent);
                 },
                 actor::ControllerAction::Jump => {
                     jump_command_event.send(res::JumpEvent);
@@ -129,26 +110,137 @@ pub fn jump_system(
     }
 }
 
-// pub fn process_crosshair_system(
-//     mut query_1: Query<(&actor::Player, &Transform)>,
-//     mut query_2: Query<(&actor::Crosshair, &mut Transform,)>,
-// ) {
-//     for (_, player_transform) in &mut query_1.iter() {
-//         for (crosshair, crosshair_transform) in &mut query_2.iter() {            
-//             set_aim(
-//                 &player_transform.translation().truncate(),
-//                 &crosshair.aim,
-//                 crosshair.distance,
-//                 &mut crosshair_transform,
-//             );
-//         }
-//     }
-// }
+/// Spawn and shoot proectile
+pub fn shoot_projectile_system(
+    mut commands: Commands,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+    shoot_event: Res<Events<res::ShootEvent>>,
+    mut shoot_event_reader: ResMut<res::ShootListenerState>,
+    mut query_1: Query<With<actor::Crosshair, &Transform>>,
+    mut query_2: Query<With<actor::Player, &Transform>>
+) {
+    for _event in shoot_event_reader.event_reader.iter(&shoot_event) {
+        for transform in &mut query_1.iter() {
+            for other_transform in &mut query_2.iter() {
+                let direction = util::get_direction(&other_transform.translation().truncate(), &transform.translation().truncate());
+                let projectile_velocity = direction.normalize() * 200.; // TODO - remove magic value
 
-// fn set_aim(a: &Vec2, b: &Vec2, distance: f32, transform: &mut Transform) {
-//     let direction = get_direction(a, b);
-//     let norm = direction.normalize() * distance;
-//     let aim = Vec2::new(a.x() + norm.x(), a.y() + norm.y()).extend(0.);
+                let upper = 20.;
+                let lower = -20.;
+                let mut rng = thread_rng();
+                let x = rng.gen_range(lower, upper);
+                let y = rng.gen_range(lower, upper);
 
-//     transform.set_translation(aim);
-// }
+                commands
+                    .spawn(SpriteComponents {
+                        material: materials.add(Color::rgb(0.1, 0.5, 0.8).into()),
+                        transform: Transform::from_translation(transform.translation().clone()),
+                        sprite: Sprite {
+                            size: Vec2::new(5., 5.),
+                            ..Default::default()
+                        },
+                        ..Default::default()
+                    })
+                    .with(actor::Projectile {
+                        direction,
+                    })
+                    .with(stats::TimeToLive(Timer::from_seconds(2.0, true)))
+                    .with(physics::GravitationalAttraction::default())
+                    .with(physics::Velocity(Vec2::new(
+                        projectile_velocity.x() + x,
+                        projectile_velocity.y() + y,
+                    )));
+            }
+        }
+    }
+}
+
+/// Shrink sprite over time then despawn it
+/// In case of out of bounds it will get despawned early
+pub fn clean_projectile_system(
+    mut commands: Commands,
+    time: Res<Time>,
+    windows: Res<Windows>,
+    mut query: Query<(
+        Entity, 
+        With<actor::Projectile, &mut stats::TimeToLive>, 
+        &mut Sprite, 
+        &Transform
+    )>,
+) {
+    let size = util::get_window_size(windows);
+    for (entity, mut timer, mut sprite, transform) in &mut query.iter() {
+        // Check if still within bounds
+        if transform.translation().y() < -size.height {
+            println!("Despawn projectile, out of bounds");
+            commands.despawn(entity);
+            
+            return;
+        }
+
+        timer.0.tick(time.delta_seconds);
+        if !timer.0.finished {
+            let procentage =
+                1. - (timer.0.elapsed) / timer.0.duration;
+            sprite.size = Vec2::new(5.0, 5.0) * procentage;
+
+            return;
+        }
+
+        println!("Despawn projectile, after time");
+        commands.despawn(entity);
+    }
+}
+
+pub fn process_crosshair_system(
+    mut query_1: Query<(&actor::Player, &actor::Controller, &Transform)>,
+    mut query_2: Query<(&actor::Crosshair, &mut Transform,)>,
+) {
+    for (_, controller, player_transform) in &mut query_1.iter() {
+        for (crosshair, mut crosshair_transform) in &mut query_2.iter() {            
+            set_aim(
+                &player_transform.translation().truncate(),
+                &controller.cursor_position,
+                crosshair.distance,
+                &mut crosshair_transform,
+            );
+        }
+    }
+}
+
+// MARK - Helper functions
+
+/// Flip the transform depending on facing direction
+fn flip_sprite(
+    transform: &mut Transform,
+    direction: f32,
+) {
+    let pi = std::f32::consts::PI;
+    let rotation = if direction > 
+    0. {
+        Quat::identity()
+    } else {
+        Quat::from_rotation_y(pi)
+    };
+
+    transform.set_rotation(rotation);
+}
+
+/// Clamp value betwen min and max
+fn clamp(value: f32, min: f32, max: f32) -> f32 {
+    if value > 0. {
+        max
+    } else if value < 0. {
+        min
+    } else {
+        0.
+    }
+}
+
+fn set_aim(a: &Vec2, b: &Vec2, distance: f32, transform: &mut Transform) {
+    let direction = util::get_direction(a, b);
+    let norm = direction.normalize() * distance;
+    let aim = Vec2::new(a.x() + norm.x(), a.y() + norm.y()).extend(0.);
+
+    transform.set_translation(aim);
+}

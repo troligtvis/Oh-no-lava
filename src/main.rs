@@ -60,7 +60,7 @@ fn main() {
 fn setup_scene(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    _materials: ResMut<Assets<ColorMaterial>>,//Res<res::ColorMaterialStorage>,
+    mut materials: ResMut<Assets<ColorMaterial>>,//Res<res::ColorMaterialStorage>,
     mut textures: ResMut<Assets<Texture>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
@@ -119,6 +119,32 @@ fn setup_scene(
             ],
         ))
         .with(comp::stats::Facing(1.));
+
+    commands
+        .spawn(SpriteComponents {
+            material: materials.add(Color::rgb(1., 0., 0.).into()),
+            transform: Transform::from_translation(Vec3::zero()),
+            sprite: Sprite {
+                size: Vec2::new(5., 5.),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .with(comp::actor::Crosshair {
+            distance: 40.,
+        });
+}
+
+fn setup_crosshair(
+    commands: &mut Commands,
+    materials: ResMut<Assets<ColorMaterial>>,
+    // asset_server: &Res<AssetServer>,
+    // owner: Entity,
+    transform: Transform,
+) -> Entity {
+   
+
+    commands.current_entity().unwrap()
 }
 
 fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {

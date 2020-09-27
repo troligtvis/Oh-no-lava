@@ -16,7 +16,7 @@ pub struct GroundContactListenerState {
 pub struct ShootEvent;
 
 #[derive(Default)]
-pub struct WeaponShootCommandListenerState {
+pub struct ShootListenerState {
     pub event_reader: EventReader<ShootEvent>,
 }
 
