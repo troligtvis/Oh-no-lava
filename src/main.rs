@@ -99,7 +99,7 @@ fn setup_scene(
         })
         .with(Timer::from_seconds(0.1, true)) // Anim timer
         .with(comp::physics::Velocity::default())
-        .with(comp::physics::Drag(0.45))
+        .with(comp::physics::Drag(1.85))
         .with(comp::actor::Player::default())
         .with(comp::actor::Controller::default())
         .with(comp::stats::MovementSpeed {
@@ -142,18 +142,6 @@ fn setup_scene(
         .with(comp::actor::Crosshair {
             distance: 40.,
         });
-}
-
-fn setup_crosshair(
-    commands: &mut Commands,
-    materials: ResMut<Assets<ColorMaterial>>,
-    // asset_server: &Res<AssetServer>,
-    // owner: Entity,
-    transform: Transform,
-) -> Entity {
-   
-
-    commands.current_entity().unwrap()
 }
 
 fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
@@ -238,10 +226,6 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
             h: SCR_HEIGHT,
         })
         .with(comp::stats::Wall);
-}
-
-pub struct SpawnTimer {
-    pub timer: Timer,
 }
 
 #[derive(PartialEq)]

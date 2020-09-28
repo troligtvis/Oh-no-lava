@@ -10,7 +10,7 @@ impl Plugin for GamePhysicsPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<res::GroundCollisionEvent>()
             .add_system(process_velocity_system.system())
-            // .add_system(drag_system.system())
+            .add_system(drag_system.system())
             .add_system(gravity_system.system())
             .add_stage_after(stage::PRE_UPDATE, "stage::GroundCheck")
             .add_system_to_stage("stage::GroundCheck", player_collision_system.system())
@@ -95,7 +95,6 @@ pub fn update_raycast(
 }
 
 pub fn shoot_raycast(
-    time: Res<Time>,
     mut query1: Query<(
         With<comp::actor::Player, &mut Transform>, 
         &comp::physics::Raycast, 
@@ -118,16 +117,16 @@ pub fn shoot_raycast(
         *position.x_mut() = position.x() + (p_box.get_size().x() / 2. * facing.0);
 
         let size = Vec2::new(12., 1.);
-
-        //attraction.is_active = true;
         
         for (other_transform, other_box) in &mut query2.iter() {
             if let Some(collision) = collide(position, size, other_transform.translation(), other_box.get_size()) {
+                
+                attraction.is_active = true;
                 match collision {
                     Collision::Left => {
-                        //attraction.is_active = false;
+                        attraction.is_active = false;
 
-                        println!("Raycast Left, {}", time.delta_seconds); 
+                        //println!("Raycast Left, {}", time.delta_seconds); 
                         let mut translation = transform.translation();
 
                         if translation.x() + p_box.get_size().x() / 2. > other_transform.translation().x() - other_box.get_size().x() / 2. {
@@ -138,9 +137,9 @@ pub fn shoot_raycast(
                         collision_data.right = true;
                     },
                     Collision::Right => {
-                        //attraction.is_active = true;
+                        attraction.is_active = false;
 
-                        println!("Raycast Right, {}", time.delta_seconds);
+                        //println!("Raycast Right, {}", time.delta_seconds);
 
                         let mut translation = transform.translation();
 

@@ -23,3 +23,5 @@ pub struct Facing(pub f32);
 
 #[derive(Debug, Default, Properties)]
 pub struct TimeToLive(pub Timer);
+#[derive(Debug, Default, Properties)]
+pub struct WallStickTimer(pub Timer);

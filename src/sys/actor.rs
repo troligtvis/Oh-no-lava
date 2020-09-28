@@ -77,8 +77,9 @@ pub fn process_commands_system(
         if movement.x().abs() > 0. {
             animation.set_anim(AnimCommonState::Run.name());
         } else {
-            animation.set_anim(AnimCommonState::Idle.name());
-            *velocity.x_mut() = 0.;
+            if velocity.x().abs() < 8.  {
+                animation.set_anim(AnimCommonState::Idle.name());
+            }
         }
 
         controller.reset_movement();
