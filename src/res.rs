@@ -27,6 +27,11 @@ pub struct JumpListenerState {
     pub event_reader: EventReader<JumpEvent>,
 }
 
+pub struct WallJumpEvent;
+
+#[derive(Default)]
+pub struct WallJumpListenerState(pub EventReader<WallJumpEvent>);
+
 #[derive(Debug, Default)]
 pub struct ColorMaterialStorage {
     pub storage: HashMap<String, Handle<ColorMaterial>>,

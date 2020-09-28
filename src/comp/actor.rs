@@ -23,6 +23,7 @@ impl Controller {
 pub enum ControllerAction {
     Shoot,
     Jump,
+    WallJump,
 }
 
 pub struct Crosshair {

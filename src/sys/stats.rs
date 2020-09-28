@@ -27,7 +27,7 @@ pub fn collider_contact_system(
         mut collision_data
     ) in &mut query.iter() {
         attraction.is_active = true;
-        collision_data.reset();
+        collision_data.below = false;
 
         for event in collision_event_reader.event_reader.iter(&collision_events) {
             collision_data.reset();

@@ -121,6 +121,9 @@ pub fn shoot_raycast(
         for (other_transform, other_box) in &mut query2.iter() {
             if let Some(collision) = collide(position, size, other_transform.translation(), other_box.get_size()) {
                 
+                collision_data.right = false;
+                collision_data.left = false;
+
                 attraction.is_active = true;
                 match collision {
                     Collision::Left => {

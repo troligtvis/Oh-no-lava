@@ -34,11 +34,19 @@ pub fn handle_input_system(
     mouse_button_input: Res<Input<MouseButton>>,
     cursor_moved_events: Res<Events<CursorMoved>>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(&comp::actor::Player, &mut comp::actor::Controller)>,
+    mut query: Query<(
+        With<comp::actor::Player, &mut comp::actor::Controller>, 
+        &comp::physics::CollisionData,
+        &comp::stats::Grounded,
+    )>,
 ) {
     let window_size = get_window_size(windows);
 
-    for (_, mut controller) in &mut query.iter() {
+    for (
+        mut controller, 
+        collision_data, 
+        grounded
+    ) in &mut query.iter() {
         if mouse_button_input.pressed(MouseButton::Left) { 
             controller.action
                 .push_back(comp::actor::ControllerAction::Shoot);
@@ -67,8 +75,13 @@ pub fn handle_input_system(
         }
 
         if keyboard_input.just_pressed(KeyCode::Space) {
-            controller.action
-                .push_back(comp::actor::ControllerAction::Jump);
+            if collision_data.either_side() && !grounded.0 {
+                controller.action
+                    .push_back(comp::actor::ControllerAction::WallJump);
+            } else {
+                controller.action
+                    .push_back(comp::actor::ControllerAction::Jump);
+            }
         }
     }   
 }

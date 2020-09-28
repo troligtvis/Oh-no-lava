@@ -11,11 +11,14 @@ pub struct GameActorPlugin;
 impl Plugin for GameActorPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.add_event::<res::JumpEvent>()
+            .add_event::<res::WallJumpEvent>()
             .add_event::<res::ShootEvent>()
             .init_resource::<res::JumpListenerState>()
+            .init_resource::<res::WallJumpListenerState>()
             .init_resource::<res::ShootListenerState>()
             .add_system(process_commands_system.system())
             .add_system_to_stage(stage::EVENT_UPDATE, jump_system.system())
+            .add_system_to_stage(stage::EVENT_UPDATE, wall_jump_system.system())            
             .add_system(process_crosshair_system.system())
             .add_system(shoot_projectile_system.system())
             .add_system_to_stage(stage::POST_UPDATE, clean_projectile_system.system());
@@ -26,6 +29,7 @@ impl Plugin for GameActorPlugin {
 
 pub fn process_commands_system(
     mut jump_command_event: ResMut<Events<res::JumpEvent>>,
+    mut wall_jump_command_event: ResMut<Events<res::WallJumpEvent>>,
     mut shoot_command_event: ResMut<Events<res::ShootEvent>>,
     mut animation: ResMut<Animation>,
     mut query: Query<(
@@ -34,9 +38,17 @@ pub fn process_commands_system(
         &mut Transform,
         &stats::MovementSpeed,
         &mut stats::Facing,
+        &physics::CollisionData,
     )>,
 ) {
-    for (mut controller, mut velocity, mut transform, speed, mut facing) in &mut query.iter() {
+    for (
+        mut controller, 
+        mut velocity, 
+        mut transform, 
+        speed, 
+        mut facing,
+        collision_data,
+    ) in &mut query.iter() {
         let movement = if controller.movement.x() + controller.movement.y() != 0.0 {
             controller.movement.normalize()
         } else {
@@ -58,6 +70,9 @@ pub fn process_commands_system(
                 actor::ControllerAction::Jump => {
                     jump_command_event.send(res::JumpEvent);
                 },
+                actor::ControllerAction::WallJump => {
+                    wall_jump_command_event.send(res::WallJumpEvent);
+                },
             }
         }
 
@@ -73,11 +88,10 @@ pub fn process_commands_system(
             }
         }
 
-        // TODO: Stop if no movement is happening
         if movement.x().abs() > 0. {
             animation.set_anim(AnimCommonState::Run.name());
         } else {
-            if velocity.x().abs() < 8.  {
+            if velocity.x().abs() < 8. || collision_data.either_side() {
                 animation.set_anim(AnimCommonState::Idle.name());
             }
         }
@@ -90,15 +104,21 @@ pub fn jump_system(
     jump_event: Res<Events<res::JumpEvent>>,
     mut jump_event_reader: ResMut<res::JumpListenerState>,
     mut query: Query<(
-        &actor::Player, 
+        With<actor::Player, &mut Transform>, 
         &mut physics::Velocity,
         &stats::JumpForce,
-        &mut Transform,
         &mut physics::GravitationalAttraction,
+        &mut stats::Grounded,
     )>,
 ) {
     for _event in jump_event_reader.event_reader.iter(&jump_event) {
-        for (_, mut velocity, jump_force, mut transform, mut attraction) in &mut query.iter() {
+        for (
+            mut transform, 
+            mut velocity, 
+            jump_force, 
+            mut attraction,
+            mut grounded,
+        ) in &mut query.iter() {
             // Move the position of the player a bit up to 
             // avoid colliding with object before jumping
             let mut translation = transform.translation();
@@ -106,7 +126,55 @@ pub fn jump_system(
             transform.set_translation(translation);
 
             attraction.is_active = true;
+            grounded.0 = false;
+
             velocity.0.set_y(jump_force.0);
+        }
+    }
+}
+
+pub fn wall_jump_system(
+    event: Res<Events<res::WallJumpEvent>>,
+    mut event_reader: ResMut<res::WallJumpListenerState>,
+    mut query: Query<(
+        With<actor::Player, &mut Transform>,
+        &mut physics::Velocity,
+        &stats::JumpForce,
+        &mut physics::GravitationalAttraction,
+        &mut physics::CollisionData,
+    )>,
+) {
+    for _ in event_reader.0.iter(&event) {
+        for (
+            mut transform, 
+            mut velocity, 
+            force, 
+            mut attraction,
+            mut collision_data
+        ) in &mut query.iter() {
+            let mut translation = transform.translation();
+            if collision_data.left {
+                *translation.x_mut() += 8.;
+                transform.set_translation(translation);
+
+                attraction.is_active = true;
+
+                velocity.0.set_x(force.0 * 1.4);                
+                velocity.0.set_y(force.0 * 1.2);
+                
+                collision_data.left = false;
+
+            } else if collision_data.right {
+                *translation.x_mut() -= 8.;
+                transform.set_translation(translation);
+
+                attraction.is_active = true;
+
+                velocity.0.set_x(-force.0 * 1.4);                
+                velocity.0.set_y(force.0 * 1.2);
+
+                collision_data.right = false;
+            }
         }
     }
 }
