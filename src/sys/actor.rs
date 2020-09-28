@@ -113,7 +113,7 @@ pub fn jump_system(
 /// Spawn and shoot proectile
 pub fn shoot_projectile_system(
     mut commands: Commands,
-    mut materials: ResMut<Assets<ColorMaterial>>,
+    materials: ResMut<res::ColorMaterialStorage>,
     shoot_event: Res<Events<res::ShootEvent>>,
     mut shoot_event_reader: ResMut<res::ShootListenerState>,
     mut query_1: Query<With<actor::Crosshair, &Transform>>,
@@ -133,7 +133,7 @@ pub fn shoot_projectile_system(
 
                 commands
                     .spawn(SpriteComponents {
-                        material: materials.add(Color::rgb(0.1, 0.5, 0.8).into()),
+                        material: *materials.storage.get(&"Projectile".to_string()).unwrap(),
                         transform: Transform::from_translation(transform.translation().clone()),
                         sprite: Sprite {
                             size: Vec2::new(5., 5.),

@@ -1,6 +1,6 @@
 use bevy::prelude::*;
 use bevy::sprite::collide_aabb::Collision;
-// use std::collections::HashMap;
+use std::collections::HashMap;
 
 pub struct GroundCollisionEvent {
     pub hit_collision: Collision, 
@@ -25,4 +25,9 @@ pub struct JumpEvent;
 #[derive(Default)]
 pub struct JumpListenerState {
     pub event_reader: EventReader<JumpEvent>,
+}
+
+#[derive(Debug, Default)]
+pub struct ColorMaterialStorage {
+    pub storage: HashMap<String, Handle<ColorMaterial>>,
 }

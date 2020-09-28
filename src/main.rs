@@ -30,6 +30,7 @@ fn main() {
             resizable: false,
             ..Default::default()
         })
+        .init_resource::<res::ColorMaterialStorage>()
         .add_plugin(FrameTimeDiagnosticsPlugin::default())
         .add_plugin(AnimationPlugin)
         .add_plugin(sys::GameLogicPlugin)
@@ -40,7 +41,7 @@ fn main() {
         //.add_plugin(PhysicsPlugin)
         // .add_plugin(sys::physics::GamePhysicsPlugin)
         
-        
+        .add_startup_system(setup_resource.system())
         .add_startup_system(setup.system())
         .add_startup_system(setup_scene.system())
         .add_resource(comp::physics::Gravity(9.82 * 40.))
@@ -56,6 +57,14 @@ fn main() {
 // ) {
 
 // }
+
+fn setup_resource(
+    mut material_storage: ResMut<res::ColorMaterialStorage>,
+    mut materials: ResMut<Assets<ColorMaterial>>,
+) {
+    let material = materials.add(Color::rgb(1., 0., 0.).into());
+    material_storage.storage.insert("Projectile".to_string(), material);
+}
 
 fn setup_scene(
     mut commands: Commands,
