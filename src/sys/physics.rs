@@ -34,7 +34,7 @@ pub fn drag_system(
     time: Res<Time>, 
     mut query: Query<(&mut physics::Velocity, &physics::Drag)>) {
     for (mut velocity, drag) in &mut query.iter() {
-        *velocity = physics::Velocity(velocity.lerp(Vec2::new(0.0, 0.0), time.delta_seconds * drag.0));
+        *velocity = physics::Velocity(velocity.lerp(Vec2::zero(), time.delta_seconds * drag.0));
     }
 }
 
@@ -60,26 +60,28 @@ fn player_collision_system(
     )>,
     mut query_2: Query<(
         &comp::physics::ColliderBox,
-        Without<comp::actor::Player, &Transform>
+        Without<comp::actor::Player, &Transform>,
+        &comp::physics::Velocity,
     )>,
 ) {
-    for (_, p_body, p_transform) in &mut query_1.iter() {
-        for (c_body, c_transform) in &mut query_2.iter() {
-            let mut translation = p_transform.translation().clone();
+    for (_, body, transform) in &mut query_1.iter() {
+        for (other_body, other_transform, other_velocity) in &mut query_2.iter() {
+            let mut translation = transform.translation().clone();
             *translation.y_mut() -= 1.;
 
             let collision = collide(
-                c_transform.translation(), 
-                c_body.get_size(), 
+                other_transform.translation(), 
+                other_body.get_size(), 
                 translation,
-                p_body.get_size(),
+                body.get_size(),
             );
 
             if let Some(collision) = collision {
                 collision_events.send(res::GroundCollisionEvent {
                     hit_collision: collision,
-                    hit_transform: c_transform.clone(),
-                    hit_size: c_body.get_size(),
+                    hit_transform: other_transform.clone(),
+                    hit_size: other_body.get_size(),
+                    hit_velocity: other_velocity.clone(),
                 });
             }
         }
@@ -102,8 +104,9 @@ pub fn shoot_raycast(
         &comp::physics::ColliderBox,
         &comp::stats::Facing,
         &mut comp::physics::CollisionData,
+        &mut comp::physics::Velocity,
     )>,
-    mut query2: Query<(With<stats::Wall, &Transform>, &physics::ColliderBox)>,
+    mut query2: Query<(With<stats::Wall, &Transform>, &physics::ColliderBox, &physics::Velocity)>,
 ) {
     for (
         mut transform, 
@@ -111,14 +114,15 @@ pub fn shoot_raycast(
         mut attraction, 
         p_box, 
         facing, 
-        mut collision_data
+        mut collision_data,
+        mut velocity,
     ) in &mut query1.iter() {
         let mut position = raycast.origin.extend(0.);
         *position.x_mut() = position.x() + (p_box.get_size().x() / 2. * facing.0);
 
         let size = Vec2::new(12., 1.);
         
-        for (other_transform, other_box) in &mut query2.iter() {
+        for (other_transform, other_box, other_velocity) in &mut query2.iter() {
             if let Some(collision) = collide(position, size, other_transform.translation(), other_box.get_size()) {
                 
                 collision_data.right = false;
@@ -129,7 +133,6 @@ pub fn shoot_raycast(
                     Collision::Left => {
                         attraction.is_active = false;
 
-                        //println!("Raycast Left, {}", time.delta_seconds); 
                         let mut translation = transform.translation();
 
                         if translation.x() + p_box.get_size().x() / 2. > other_transform.translation().x() - other_box.get_size().x() / 2. {
@@ -138,11 +141,11 @@ pub fn shoot_raycast(
                         }
                        
                         collision_data.right = true;
+
+                        *velocity.0.x_mut() = other_velocity.0.x();
                     },
                     Collision::Right => {
                         attraction.is_active = false;
-
-                        //println!("Raycast Right, {}", time.delta_seconds);
 
                         let mut translation = transform.translation();
 
@@ -152,6 +155,8 @@ pub fn shoot_raycast(
                         }
 
                         collision_data.left = true;
+
+                        *velocity.0.x_mut() = other_velocity.0.x();
                     },
                     _ => {},
                 };

@@ -16,6 +16,7 @@ pub fn collider_contact_system(
         &mut Transform, 
         &mut physics::GravitationalAttraction,
         &mut physics::CollisionData,
+        &mut physics::Velocity,
     )>,
 ) {
     for (
@@ -24,7 +25,8 @@ pub fn collider_contact_system(
         body, 
         mut transform, 
         mut attraction, 
-        mut collision_data
+        mut collision_data,
+        mut velocity,
     ) in &mut query.iter() {
         attraction.is_active = true;
         collision_data.below = false;
@@ -38,6 +40,10 @@ pub fn collider_contact_system(
                 &mut grounded,
                 &mut attraction,
             );
+
+            if collision_data.below {
+                *velocity.0.x_mut() = event.hit_velocity.0.x();
+            }
         }
     }
 }

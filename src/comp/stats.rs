@@ -1,6 +1,9 @@
 use bevy::prelude::*;
 
 #[derive(Debug, Default, Properties)]
+pub struct StartPosition(pub Vec2);
+
+#[derive(Debug, Default, Properties)]
 pub struct MovementSpeed {
     pub accel: f32,
     pub max: f32,
@@ -25,3 +28,6 @@ pub struct Facing(pub f32);
 pub struct TimeToLive(pub Timer);
 #[derive(Debug, Default, Properties)]
 pub struct WallStickTimer(pub Timer);
+
+#[derive(Debug, Default, Properties)]
+pub struct SpawnTimer(pub Timer);

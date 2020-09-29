@@ -6,6 +6,8 @@ pub struct Player {
 
 }
 
+pub struct Furniture;
+
 #[derive(Debug, Default)]
 pub struct Controller {
     pub cursor_position: Vec2,

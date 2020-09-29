@@ -91,9 +91,11 @@ pub fn process_commands_system(
         if movement.x().abs() > 0. {
             animation.set_anim(AnimCommonState::Run.name());
         } else {
-            if velocity.x().abs() < 8. || collision_data.either_side() {
+            // TODO: - Figure out a way to detect riding on moving objects should work
+            // with updating animations
+            //if velocity.x().abs() < 8. || collision_data.either_side() {
                 animation.set_anim(AnimCommonState::Idle.name());
-            }
+            //}
         }
 
         controller.reset_movement();

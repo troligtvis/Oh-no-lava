@@ -7,7 +7,6 @@ use bevy::{
     diagnostic::FrameTimeDiagnosticsPlugin,
 };
 
-// mod furniture;
 // mod player;
 // mod projectile;
 mod animation;
@@ -36,7 +35,6 @@ fn main() {
         .add_plugin(sys::GameLogicPlugin)
         .add_default_plugins()
         // .init_resource::<res::ColorMaterialStorage>()
-        // .add_plugin(furniture::FurniturePlugin)
         //.add_plugin(player::PlayerPlugin)
         //.add_plugin(PhysicsPlugin)
         // .add_plugin(sys::physics::GamePhysicsPlugin)
@@ -48,22 +46,19 @@ fn main() {
         .run();
 }
 
-// #[deri`
-
-// fn spawn_player(
-//     commands: &mut commands,
-//     asset_server: &Res<AssetServer>,
-//     materials: &Res<ColorMaterialStorage>
-// ) {
-
-// }
-
 fn setup_resource(
     mut material_storage: ResMut<res::ColorMaterialStorage>,
     mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-    let material = materials.add(Color::rgb(1., 0., 0.).into());
-    material_storage.storage.insert("Projectile".to_string(), material);
+    material_storage.storage.insert(
+        "Projectile".to_string(), 
+        materials.add(Color::rgb(1., 0., 0.).into())
+    );
+
+    material_storage.storage.insert(
+        "Default_Furniture".to_string(), 
+        materials.add(Color::rgb(0.1, 0.1, 0.1).into())
+    );
 }
 
 fn setup_scene(
@@ -77,11 +72,11 @@ fn setup_scene(
 
     // Player
     let texture_handle = asset_server
-    .load_sync(
-        &mut textures,
-        "resources/player_animation.png",
-    )
-    .unwrap();
+        .load_sync(
+            &mut textures,
+            "resources/player_animation.png",
+        )
+        .unwrap();
     let texture = textures.get(&texture_handle).unwrap();
     let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 10, 3);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
