@@ -7,21 +7,18 @@ use bevy::{
     diagnostic::FrameTimeDiagnosticsPlugin,
 };
 
-// mod player;
-// mod projectile;
 mod animation;
-use animation::*;
 mod util;
-// mod particles;
 mod res;
-
-use util::*;
 mod comp;
 mod sys;
 
+use util::*;
+use animation::*;
+
 fn main() {
     App::build()
-        .add_resource(ClearColor(Color::rgb(1.0, 1.0, 1.0)))
+        .add_resource(ClearColor(Color::rgb(67. / 255., 75. / 255., 77. / 255.)))
         .add_resource(WindowDescriptor {
             title: "Oh no, lava!".to_string(),
             width: util::SCR_WIDTH as u32,
@@ -34,11 +31,6 @@ fn main() {
         .add_plugin(AnimationPlugin)
         .add_plugin(sys::GameLogicPlugin)
         .add_default_plugins()
-        // .init_resource::<res::ColorMaterialStorage>()
-        //.add_plugin(player::PlayerPlugin)
-        //.add_plugin(PhysicsPlugin)
-        // .add_plugin(sys::physics::GamePhysicsPlugin)
-        
         .add_startup_system(setup_resource.system())
         .add_startup_system(setup.system())
         .add_startup_system(setup_scene.system())
@@ -52,12 +44,17 @@ fn setup_resource(
 ) {
     material_storage.storage.insert(
         "Projectile".to_string(), 
-        materials.add(Color::rgb(1., 0., 0.).into())
+        materials.add(res::Colors::WATER.into())
     );
 
     material_storage.storage.insert(
         "Default_Furniture".to_string(), 
         materials.add(Color::rgb(0.1, 0.1, 0.1).into())
+    );
+
+    material_storage.storage.insert(
+        "Dust".to_string(), 
+        materials.add(res::Colors::LINEN.into())
     );
 }
 
@@ -126,7 +123,7 @@ fn setup_scene(
 
     commands
         .spawn(SpriteComponents {
-            material: materials.add(Color::rgb(1., 0., 0.).into()),
+            material: materials.add(Color::rgb(105. / 255., 105. / 255., 105. / 255.).into()),
             transform: Transform::from_translation(Vec3::zero()),
             sprite: Sprite {
                 size: Vec2::new(5., 5.),
@@ -145,7 +142,7 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
     // Ground
     commands
         .spawn(SpriteComponents {
-            material: materials.add(Color::rgb(0.2, 0.2, 0.8).into()),
+            material: materials.add(res::Colors::LAVA.into()),
             transform: Transform::from_translation(Vec3::new(0., -SCR_HEIGHT / 2., 0.)),
             sprite: Sprite {
                 size: Vec2::new(SCR_WIDTH, 20.),
@@ -201,26 +198,26 @@ fn setup(mut commands: Commands, mut materials: ResMut<Assets<ColorMaterial>>) {
         })
         .with(comp::stats::Wall);
 
-    commands
-        .spawn(SpriteComponents {
-            material: materials.add(Color::rgb(0.2, 0.6, 0.6).into()),
-            transform: Transform::from_translation(Vec3::new(0., -SCR_HEIGHT + 80., 0.)),
-            // x1: -32, x2: 32
-            // y1: , y2:
-            sprite: Sprite {
-                size: Vec2::new(64., SCR_HEIGHT),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .with(comp::physics::Velocity::default())
-        .with(Collider::Solid)
-        .with(comp::stats::Ground)
-        .with(comp::physics::ColliderBox {
-            w: 64.,
-            h: SCR_HEIGHT,
-        })
-        .with(comp::stats::Wall);
+    // commands
+    //     .spawn(SpriteComponents {
+    //         material: materials.add(Color::rgb(0.2, 0.6, 0.6).into()),
+    //         transform: Transform::from_translation(Vec3::new(0., -SCR_HEIGHT + 80., 0.)),
+    //         // x1: -32, x2: 32
+    //         // y1: , y2:
+    //         sprite: Sprite {
+    //             size: Vec2::new(64., SCR_HEIGHT),
+    //             ..Default::default()
+    //         },
+    //         ..Default::default()
+    //     })
+    //     .with(comp::physics::Velocity::default())
+    //     .with(Collider::Solid)
+    //     .with(comp::stats::Ground)
+    //     .with(comp::physics::ColliderBox {
+    //         w: 64.,
+    //         h: SCR_HEIGHT,
+    //     })
+    //     .with(comp::stats::Wall);
 }
 
 #[derive(PartialEq)]

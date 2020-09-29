@@ -8,6 +8,16 @@ pub struct Player {
 
 pub struct Furniture;
 
+// // Different types of spawning furnitures
+// enum FurnitureShape {
+//     Chair,
+//     Table,
+//     Sofa,
+//     Refrigerator,
+//     TV,
+//     Lamp,
+// }
+
 #[derive(Debug, Default)]
 pub struct Controller {
     pub cursor_position: Vec2,

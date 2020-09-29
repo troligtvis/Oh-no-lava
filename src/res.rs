@@ -3,6 +3,13 @@ use bevy::sprite::collide_aabb::Collision;
 use std::collections::HashMap;
 use crate::comp;
 
+pub struct Colors;
+impl Colors {
+    pub const WATER: Color = Color::rgb(212. / 255., 241. / 255., 249. / 255.);
+    pub const LAVA: Color = Color::rgb(207. / 255., 16. / 255., 32. / 255.);
+    pub const LINEN: Color = Color::rgba(246. / 255., 242. / 255., 237. / 255., 0.6);
+}
+
 pub struct GroundCollisionEvent {
     pub hit_collision: Collision, 
     pub hit_transform: Transform,

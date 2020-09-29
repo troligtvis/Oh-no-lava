@@ -2,12 +2,15 @@ use crate::comp::actor;
 use crate::comp::physics;
 use crate::comp::stats;
 use crate::res;
+use crate::sys;
 
 use bevy::prelude::*;   
 use bevy::sprite::collide_aabb::Collision;
 
 pub fn collider_contact_system(
+    mut commands: Commands,
     collision_events: Res<Events<res::GroundCollisionEvent>>,
+    mut materials: ResMut<res::ColorMaterialStorage>,
     mut collision_event_reader: ResMut<res::GroundContactListenerState>,
     mut query: Query<(
         &actor::Player, 
@@ -30,6 +33,7 @@ pub fn collider_contact_system(
     ) in &mut query.iter() {
         attraction.is_active = true;
         collision_data.below = false;
+        let prev_below = grounded.0;
 
         for event in collision_event_reader.event_reader.iter(&collision_events) {
             collision_data.reset();
@@ -42,6 +46,16 @@ pub fn collider_contact_system(
             );
 
             if collision_data.below {
+                if !prev_below {
+                    let mut translation = transform.translation().truncate();
+                    *translation.y_mut() -= body.get_size().y() / 2.;
+                    sys::particles::spawn_dust_particle(
+                        &mut commands, 
+                        &mut materials, 
+                        translation
+                    );
+                } 
+
                 *velocity.0.x_mut() = event.hit_velocity.0.x();
             }
         }

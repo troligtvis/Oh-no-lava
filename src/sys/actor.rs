@@ -3,6 +3,7 @@ use crate::comp::{actor, physics, stats};
 use crate::res;
 use crate::animation::{Animation, AnimCommonState, AnimStateDescriptor};
 use crate::util;
+use crate::sys;
 
 use rand::{thread_rng, Rng};
 
@@ -47,7 +48,7 @@ pub fn process_commands_system(
         mut transform, 
         speed, 
         mut facing,
-        collision_data,
+        _collision_data,
     ) in &mut query.iter() {
         let movement = if controller.movement.x() + controller.movement.y() != 0.0 {
             controller.movement.normalize()
@@ -136,6 +137,8 @@ pub fn jump_system(
 }
 
 pub fn wall_jump_system(
+    mut commands: Commands,
+    mut materials: ResMut<res::ColorMaterialStorage>,
     event: Res<Events<res::WallJumpEvent>>,
     mut event_reader: ResMut<res::WallJumpListenerState>,
     mut query: Query<(
@@ -144,6 +147,8 @@ pub fn wall_jump_system(
         &stats::JumpForce,
         &mut physics::GravitationalAttraction,
         &mut physics::CollisionData,
+        &physics::ColliderBox,
+        &stats::Facing,
     )>,
 ) {
     for _ in event_reader.0.iter(&event) {
@@ -152,9 +157,13 @@ pub fn wall_jump_system(
             mut velocity, 
             force, 
             mut attraction,
-            mut collision_data
+            mut collision_data,
+            body,
+            facing,
         ) in &mut query.iter() {
             let mut translation = transform.translation();
+            let mut position = transform.translation().truncate();
+
             if collision_data.left {
                 *translation.x_mut() += 8.;
                 transform.set_translation(translation);
@@ -164,6 +173,26 @@ pub fn wall_jump_system(
                 velocity.0.set_x(force.0 * 1.4);                
                 velocity.0.set_y(force.0 * 1.2);
                 
+                *position.x_mut() -= body.get_size().x() / 2.; 
+
+                sys::particles::spawn_wall_dust_particle(
+                    &mut commands, 
+                    &mut materials, 
+                    position, 
+                    Vec2::new(1., 1.),  
+                    facing.0,
+                    10,
+                );
+
+                // sys::particles::spawn_wall_dust_particle(
+                //     &mut commands, 
+                //     &mut materials, 
+                //     position, 
+                //     velocity.0 * 0.4,  
+                //     facing.0,
+                //     10,
+                // );
+
                 collision_data.left = false;
 
             } else if collision_data.right {
@@ -175,11 +204,40 @@ pub fn wall_jump_system(
                 velocity.0.set_x(-force.0 * 1.4);                
                 velocity.0.set_y(force.0 * 1.2);
 
+                *position.x_mut() += body.get_size().x() / 2.; 
+
+                sys::particles::spawn_wall_dust_particle(
+                    &mut commands, 
+                    &mut materials, 
+                    position, 
+                    Vec2::new(-1., 1.),  
+                    facing.0,
+                    10,
+                );
+
                 collision_data.right = false;
             }
         }
     }
 }
+
+// fn stretch_sprite_system(
+    //     time: Res<Time>,
+    //     mut query: Query<(&mut Player, &mut StretchTimer, &mut Transform)>
+    // ) {
+    //     for (mut player, mut stretch_timer, mut transform) in &mut query.iter() {
+    //         stretch_timer.0.tick(time.delta_seconds);
+    
+    //         if stretch_timer.0.finished {
+    //             transform.set_non_uniform_scale(Vec3::one());
+    //         }
+    //     }
+    // }
+    // timer.0.reset();
+//                 timer.0.duration = 0.5;
+                
+//                 transform.set_non_uniform_scale(Vec3::new(0.8, 1.2, 1.)); 
+
 
 /// Spawn and shoot proectile
 pub fn shoot_projectile_system(
