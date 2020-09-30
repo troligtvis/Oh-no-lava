@@ -31,3 +31,6 @@ pub struct WallStickTimer(pub Timer);
 
 #[derive(Debug, Default, Properties)]
 pub struct SpawnTimer(pub Timer);
+
+#[derive(Debug, Default, Properties)]
+pub struct StretchTimer(pub Timer);

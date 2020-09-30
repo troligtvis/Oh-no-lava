@@ -23,6 +23,7 @@ impl Plugin for GameActorPlugin {
             .add_system(process_crosshair_system.system())
             .add_system(shoot_projectile_system.system())
             .add_system_to_stage(stage::POST_UPDATE, clean_projectile_system.system());
+            // .add_system(stretch_to_normal_system.system());
     }
 }
 
@@ -34,7 +35,7 @@ pub fn process_commands_system(
     mut shoot_command_event: ResMut<Events<res::ShootEvent>>,
     mut animation: ResMut<Animation>,
     mut query: Query<(
-        &mut actor::Controller,
+        &mut actor::Controller,    
         &mut physics::Velocity,
         &mut Transform,
         &stats::MovementSpeed,
@@ -112,6 +113,7 @@ pub fn jump_system(
         &stats::JumpForce,
         &mut physics::GravitationalAttraction,
         &mut stats::Grounded,
+        &mut stats::StretchTimer,
     )>,
 ) {
     for _event in jump_event_reader.event_reader.iter(&jump_event) {
@@ -121,6 +123,7 @@ pub fn jump_system(
             jump_force, 
             mut attraction,
             mut grounded,
+            mut stretch_timer,
         ) in &mut query.iter() {
             // Move the position of the player a bit up to 
             // avoid colliding with object before jumping
@@ -132,6 +135,8 @@ pub fn jump_system(
             grounded.0 = false;
 
             velocity.0.set_y(jump_force.0);
+
+            // stretch_sprite(&mut stretch_timer, &mut transform);
         }
     }
 }
@@ -149,6 +154,7 @@ pub fn wall_jump_system(
         &mut physics::CollisionData,
         &physics::ColliderBox,
         &stats::Facing,
+        &mut stats::StretchTimer,
     )>,
 ) {
     for _ in event_reader.0.iter(&event) {
@@ -160,6 +166,7 @@ pub fn wall_jump_system(
             mut collision_data,
             body,
             facing,
+            mut stretch_timer,
         ) in &mut query.iter() {
             let mut translation = transform.translation();
             let mut position = transform.translation().truncate();
@@ -184,14 +191,7 @@ pub fn wall_jump_system(
                     10,
                 );
 
-                // sys::particles::spawn_wall_dust_particle(
-                //     &mut commands, 
-                //     &mut materials, 
-                //     position, 
-                //     velocity.0 * 0.4,  
-                //     facing.0,
-                //     10,
-                // );
+                // stretch_sprite(&mut stretch_timer, &mut transform);
 
                 collision_data.left = false;
 
@@ -215,29 +215,36 @@ pub fn wall_jump_system(
                     10,
                 );
 
+                // stretch_sprite(&mut stretch_timer, &mut transform);
+
                 collision_data.right = false;
             }
         }
     }
 }
 
-// fn stretch_sprite_system(
-    //     time: Res<Time>,
-    //     mut query: Query<(&mut Player, &mut StretchTimer, &mut Transform)>
-    // ) {
-    //     for (mut player, mut stretch_timer, mut transform) in &mut query.iter() {
-    //         stretch_timer.0.tick(time.delta_seconds);
+fn stretch_to_normal_system(
+        time: Res<Time>,
+        mut query: Query<(With<actor::Player, &mut Transform>, &mut stats::StretchTimer)>
+    ) {
+        for (mut transform, mut timer) in &mut query.iter() {
+            timer.0.tick(time.delta_seconds);
     
-    //         if stretch_timer.0.finished {
-    //             transform.set_non_uniform_scale(Vec3::one());
-    //         }
-    //     }
-    // }
-    // timer.0.reset();
-//                 timer.0.duration = 0.5;
-                
-//                 transform.set_non_uniform_scale(Vec3::new(0.8, 1.2, 1.)); 
+            if timer.0.finished {
+                transform.set_non_uniform_scale(Vec3::one());
+            }
+    }
+}
 
+fn stretch_sprite(
+    timer: &mut stats::StretchTimer,
+    transform: &mut Transform,
+) {
+    timer.0.reset();
+    timer.0.duration = 0.4;
+                
+    transform.set_non_uniform_scale(Vec3::new(0.9, 1.1, 1.)); 
+}
 
 /// Spawn and shoot proectile
 pub fn shoot_projectile_system(

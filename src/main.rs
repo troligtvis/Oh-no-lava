@@ -119,7 +119,8 @@ fn setup_scene(
                 comp::physics::Raycast::down(),
             ],
         ))
-        .with(comp::stats::Facing(1.));
+        .with(comp::stats::Facing(1.))
+        .with(comp::stats::StretchTimer(Timer::from_seconds(0.6, false)));
 
     commands
         .spawn(SpriteComponents {
