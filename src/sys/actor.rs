@@ -317,6 +317,7 @@ pub fn clean_projectile_system(
         }
 
         println!("Despawn projectile, after time");
+        commands.remove_one::<Draw>(entity);
         commands.despawn(entity);
     }
 }

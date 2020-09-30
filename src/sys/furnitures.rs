@@ -72,6 +72,8 @@ fn despawn_furniture_system(
 
     for (entity, transform) in &mut query.iter() {
         if transform.translation().x() < -window_size.width / 2. - 200. {
+            // https://github.com/bevyengine/bevy/issues/190#a-674447429
+            commands.remove_one::<Draw>(entity);
             commands.despawn(entity);
         }
     }

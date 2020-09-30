@@ -34,6 +34,8 @@ pub fn shrinkable_particle_cleanup_system(
 
             return;
         }
+        
+        commands.remove_one::<Draw>(entity);
         commands.despawn(entity);
     }
 }
