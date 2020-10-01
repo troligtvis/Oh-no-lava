@@ -60,6 +60,7 @@ impl AnimData {
         self.name.clone()
     }
 
+    // TODO : need to update this
     fn get_index(&self, i: u32) -> u32 {
         ((i + 1) % self.frames_count as u32) + self.start_index as u32
     }
@@ -91,6 +92,34 @@ impl Plugin for AnimationPlugin {
                 AnimCommonState::Idle.name()
             )
         )
-        .add_system(animate_sprite_system.system());
+        .add_system(animate_sprite_system.system())
+        .add_system(animate_lava_system.system());
+    }
+}
+
+// Lava bubbles animation
+pub struct Lava {
+    pub data: LavaAnimData,
+}
+
+pub struct LavaAnimData {
+    pub index: u32,
+    pub frames_count: u32,
+}
+
+impl LavaAnimData {
+    fn get_next_index(&mut self) -> u32 {
+        self.index = (self.index + 1) % self.frames_count;
+        self.index
+    }
+}
+
+fn animate_lava_system(
+    mut query: Query<(&mut Lava, &mut Timer, &mut TextureAtlasSprite)>,
+) {
+    for (mut lava, timer, mut sprite) in &mut query.iter() {
+        if timer.finished {
+            sprite.index = lava.data.get_next_index();
+        }
     }
 }

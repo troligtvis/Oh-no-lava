@@ -8,16 +8,12 @@ use bevy::{
     window::CursorMoved,
 };
 
-const FALL_MULTIPLIER: f32 = 2.5;
-const LOW_JUMP_MULTIPLIER: f32 = 2.;
-
 pub struct PlayerPlugin;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut AppBuilder) {
         app.init_resource::<MouseState>()
-            .add_system(handle_input_system.system())
-            .add_system(adjust_jump_system.system());
+            .add_system(handle_input_system.system());
     }
 }
 
@@ -84,32 +80,4 @@ pub fn handle_input_system(
             }
         }
     }   
-}
-
-fn adjust_jump_system(
-    time: Res<Time>,
-    gravity: Res<comp::physics::Gravity>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(
-        &comp::actor::Player, 
-        &mut comp::physics::Velocity, 
-        &comp::physics::GravitationalAttraction
-    )>,
-) {
-    let dt = time.delta_seconds;
-
-    for (_player, mut velocity, affected) in &mut query.iter() {
-        if !affected.is_active {
-            break;
-        }
-
-        // Better jumping
-        if velocity.0.y() < 0.0 {
-            let vel = Vec2::unit_y() * -gravity.0 * (FALL_MULTIPLIER - 1.) * dt;
-            velocity.0 += vel;
-        } else if velocity.0.y() > 0.0 && !keyboard_input.pressed(KeyCode::Space) {
-            let vel = Vec2::unit_y() * -gravity.0 * (LOW_JUMP_MULTIPLIER - 1.) * dt;
-            velocity.0 += vel;
-        }
-    }
 }

@@ -4,6 +4,9 @@ use crate::comp::{self, physics, stats};
 use crate::res;
 use bevy::sprite::collide_aabb::{collide, Collision};
 
+const FALL_MULTIPLIER: f32 = 2.5;
+const LOW_JUMP_MULTIPLIER: f32 = 2.;
+
 pub struct GamePhysicsPlugin;
 
 impl Plugin for GamePhysicsPlugin {
@@ -16,7 +19,8 @@ impl Plugin for GamePhysicsPlugin {
             .add_system_to_stage("stage::GroundCheck", player_collision_system.system())
             .add_stage_after(stage::PRE_UPDATE, "stage::Raycast")
             .add_system_to_stage("stage::Raycast", update_raycast.system())
-            .add_system_to_stage("stage::Raycast", shoot_raycast.system());
+            .add_system_to_stage("stage::Raycast", shoot_raycast.system())
+            .add_system(adjust_jump_system.system());
     }
 }
 
@@ -48,6 +52,34 @@ pub fn gravity_system(
         *velocity.0.y_mut() -= gravity.0 * time.delta_seconds;
     } else {        
         *velocity.0.y_mut() = 0.;
+    }
+}
+
+fn adjust_jump_system(
+    time: Res<Time>,
+    gravity: Res<comp::physics::Gravity>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<(
+        &comp::actor::Player, 
+        &mut comp::physics::Velocity, 
+        &comp::physics::GravitationalAttraction
+    )>,
+) {
+    let dt = time.delta_seconds;
+
+    for (_player, mut velocity, affected) in &mut query.iter() {
+        if !affected.is_active {
+            break;
+        }
+
+        // Better jumping
+        if velocity.0.y() < 0.0 {
+            let vel = Vec2::unit_y() * -gravity.0 * (FALL_MULTIPLIER - 1.) * dt;
+            velocity.0 += vel;
+        } else if velocity.0.y() > 0.0 && !keyboard_input.pressed(KeyCode::Space) {
+            let vel = Vec2::unit_y() * -gravity.0 * (LOW_JUMP_MULTIPLIER - 1.) * dt;
+            velocity.0 += vel;
+        }
     }
 }
 
