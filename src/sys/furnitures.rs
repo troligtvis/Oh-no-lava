@@ -8,6 +8,15 @@ use crate::util;
 
 use rand::{thread_rng, Rng};
 
+struct Wave;
+
+struct FurnitureSpawner {
+    start_position: Vec3,
+    end_position: Vec3,
+    t_min: f32,
+    t_max: f32,
+    timer: Timer,
+}
 
 pub struct FurniturePlugin;
 
@@ -16,20 +25,57 @@ impl Plugin for FurniturePlugin {
         app.add_resource(comp::stats::SpawnTimer(
                 Timer::from_seconds(0.1, true)
             ))
-            .add_system(spawn_furniture_system.system())
-            .add_system(despawn_furniture_system.system());
+            .add_startup_system_to_stage("post_startup", setup_furnitures.system())
+            .add_system(spawn_system.system())
+            .add_system(despawn_system.system());
     }
 }
 
-fn spawn_furniture_system(
+fn setup_furnitures(
     mut commands: Commands,
-    windows: Res<Windows>,
     materials: ResMut<res::ColorMaterialStorage>,
+) {
+
+    let size = Vec2::new(84., 136.); 
+
+    for _ in 0..10 {
+        commands
+            .spawn(SpriteComponents {
+                material: *materials.storage.get(&"Default_Furniture".to_string()).unwrap(),
+                transform: Transform::from_translation(Vec3::zero()),
+                sprite: Sprite {
+                    size,
+                    ..Default::default()
+                },
+                draw: Draw {
+                    is_visible: false,
+                    is_transparent: false,
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .with(comp::actor::Furniture)
+            .with(comp::physics::ColliderBox {
+                w: size.x(),
+                h: size.y(),
+            })
+            .with(comp::physics::Velocity(Vec2::zero()))
+            .with(comp::stats::Ground)
+            .with(comp::stats::Wall)
+            .with(Wave);
+    }
+}
+
+fn spawn_system(
+    windows: Res<Windows>,
     time: Res<Time>,
     mut spawn_timer: ResMut<comp::stats::SpawnTimer>,
+    mut query: Query<(
+        With<Wave, &mut Transform>,
+        &mut comp::physics::Velocity,
+        &mut Draw
+    )>
 ) {
-    let scr_size = util::get_window_size(windows);
-    
     spawn_timer.0.tick(time.delta_seconds);
     if !spawn_timer.0.finished {
         return;
@@ -38,43 +84,48 @@ fn spawn_furniture_system(
     let mut rng = thread_rng();
     spawn_timer.0.duration = rng.gen_range(2.9, 4.2);
 
-    let size = Vec2::new(84., 136.); 
-    commands
-        .spawn(SpriteComponents {
-            material: *materials.storage.get(&"Default_Furniture".to_string()).unwrap(),
-            transform: Transform::from_translation(Vec3::new(
+    let scr_size = util::get_window_size(windows);
+
+    for (mut transform, mut velocity, mut draw) in &mut query.iter() {
+        if !draw.is_visible {
+            draw.is_visible = true;
+            *velocity.0.x_mut() = -60.;
+    
+            transform.set_translation(Vec3::new(
                 scr_size.width / 2. + 200., 
                 -scr_size.height / 2. + 50., 
                 0.
-            )),
-            sprite: Sprite {
-                size,
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .with(comp::actor::Furniture)
-        .with(comp::physics::ColliderBox {
-            w: size.x(),
-            h: size.y(),
-        })
-        .with(comp::physics::Velocity(Vec2::new(- 60., 0.)))
-        .with(comp::stats::Ground)
-        .with(comp::stats::Wall);
+            ));
+
+            // We only want one
+            return;
+        }
+    }
 }
 
-fn despawn_furniture_system(
-    mut commands: Commands,
+fn despawn_system(
     windows: Res<Windows>,
-    mut query: Query<(Entity, With<comp::actor::Furniture, &Transform>)>,
+    mut query: Query<(
+        With<Wave, &mut Transform>,
+        &mut Draw,
+        &mut comp::physics::Velocity,
+    )>,
 ) {
     let window_size = util::get_window_size(windows);
 
-    for (entity, transform) in &mut query.iter() {
+    for (mut transform, mut draw, mut velocity) in &mut query.iter() {
         if transform.translation().x() < -window_size.width / 2. - 200. {
-            // https://github.com/bevyengine/bevy/issues/190#a-674447429
-            commands.remove_one::<Draw>(entity);
-            commands.despawn(entity);
+            draw.is_visible = false;
+
+            let start_position = Vec3::new(
+                window_size.width / 2. + 200., 
+                -window_size.height / 2. + 50., 
+                0.
+            );
+
+            transform.set_translation(start_position);
+
+            *velocity.0.x_mut() = 0.;
         }
     }
 }

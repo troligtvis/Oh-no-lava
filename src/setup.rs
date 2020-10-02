@@ -42,7 +42,6 @@ fn setup_game_system(
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
     mut textures: ResMut<Assets<Texture>>,
-    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
     commands.spawn(Camera2dComponents::default());
 
