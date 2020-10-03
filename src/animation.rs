@@ -32,8 +32,8 @@ impl Animation {
         }
     }
 
-    fn get_current_data(&self) -> Option<&AnimData> {
-        self.data.get(&self.current_anim)
+    fn get_current_data(&mut self) -> Option<&mut AnimData> {
+        self.data.get_mut(&self.current_anim)
     }
 
     pub fn set_anim(&mut self, name: &str) {
@@ -43,16 +43,18 @@ impl Animation {
 
 pub struct AnimData {
     name: String,
-    start_index: usize,
-    frames_count: usize,
+    start_index: u32,
+    frames_count: u32,
+    current_index: u32,
 }
 
 impl AnimData {
-    pub fn new(name: &str, start_index: usize, frames_count: usize) -> Self {
+    pub fn new(name: &str, start_index: u32, frames_count: u32) -> Self {
         Self {
             name: name.to_string(),
             start_index,
             frames_count,
+            current_index: 0,
         }
     }
 
@@ -60,20 +62,25 @@ impl AnimData {
         self.name.clone()
     }
 
-    // TODO : need to update this
-    fn get_index(&self, i: u32) -> u32 {
-        ((i + 1) % self.frames_count as u32) + self.start_index as u32
+    fn get_index(&mut self) -> u32 {
+        self.current_index += 1;
+        if self.current_index >= self.frames_count {
+            self.current_index = 0;
+        }
+        
+        let i = self.frames_count - self.current_index;
+        (i % self.frames_count) + self.start_index
     }
 }
 
 fn animate_sprite_system(
-    animation: Res<Animation>,
+    mut animation: ResMut<Animation>,
     mut query: Query<(&mut Timer, &mut TextureAtlasSprite)>,
 ) {
     if let Some(animation_data) = animation.get_current_data() {
         for (timer, mut sprite) in &mut query.iter() {
             if timer.finished {
-                sprite.index = animation_data.get_index(sprite.index);
+                sprite.index = animation_data.get_index();
             }
         }
     }
