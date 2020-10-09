@@ -157,13 +157,6 @@ fn setup_player_system(
             t_min: 8., // Half player size
             t_max: 12.,
         })
-        .with(comp::physics::GroundRaycasts(
-            vec![
-                comp::physics::Raycast::down(),
-                comp::physics::Raycast::down(),
-                comp::physics::Raycast::down(),
-            ],
-        ))
         .with(comp::stats::Facing(1.))
         .with(comp::stats::StretchTimer(Timer::from_seconds(0.6, false)));
 

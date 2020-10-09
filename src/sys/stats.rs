@@ -70,20 +70,12 @@ fn set_grounded_if_needed(
     attraction: &mut physics::GravitationalAttraction
 ) -> bool {
     match event.hit_collision {
-        Collision::Left | Collision::Right => {
-            if is_between(
-                transform.translation().y() - size.y() / 2.,
-                event.hit_transform.translation().y() + event.hit_size.y() / 2. - 2.,
-                event.hit_transform.translation().y() + event.hit_size.y() / 2. - 10.
-            ) { 
+        Collision::Left | Collision::Right | Collision::Bottom => {
+            if transform.translation().y() - size.y() / 2. < event.hit_transform.translation().y() + event.hit_size.y() / 2. - 10.
+            { 
                 return false
             }
         },
-        Collision::Bottom => {
-            if transform.translation().y() - size.y() / 2. <= event.hit_transform.translation().y() + event.hit_size.y() / 2. - 10. {
-                return false
-            }
-        }
         _ => {}
     }
 
