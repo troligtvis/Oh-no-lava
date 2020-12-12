@@ -16,7 +16,7 @@ pub fn get_direction(a: &Vec2, b: &Vec2) -> Vec2 {
 
 pub fn get_window_size(windows: Res<Windows>) -> Size {
     if let Some(window) = windows.get_primary() {
-        Size::new(window.height as f32, window.height as f32)
+        Size::new(window.width() as f32, window.height() as f32)
     } else {
         Size::new(SCR_WIDTH, SCR_HEIGHT)
     }

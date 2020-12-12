@@ -26,7 +26,7 @@ pub fn shrinkable_particle_cleanup_system(
         entity, 
         mut sprite, 
         mut timer
-    ) in &mut query.iter() {
+    ) in query.iter_mut() {
         timer.0.tick(time.delta_seconds);
         if !timer.0.finished {
             let procentage = 1. - (timer.0.elapsed) / timer.0.duration;
@@ -53,8 +53,9 @@ pub fn spawn_dust_particle(
         let x = rng.gen_range(lower, upper);
     
         let particle = comp::particles::DustParticle::default();
+        let handle = materials.storage.get(&"Dust".to_string()).unwrap();
         commands.spawn(SpriteComponents {
-            material:  *materials.storage.get(&"Dust".to_string()).unwrap(),
+            material:  handle.clone(),
             transform: Transform::from_translation(position.extend(0.)),
             sprite: Sprite {
                 size: particle.size,
@@ -85,10 +86,11 @@ pub fn spawn_wall_dust_particle(
 
     for _ in 0..particle_count {
         let rnd = rng.gen_range(lower, upper);
-    
         let particle = comp::particles::DustParticle::default();
+
+        let handle = materials.storage.get(&"Dust".to_string()).unwrap();
         commands.spawn(SpriteComponents {
-            material:  *materials.storage.get(&"Dust".to_string()).unwrap(),
+            material:  handle.clone(),
             transform: Transform::from_translation(position.extend(0.)),
             sprite: Sprite {
                 size: particle.size,

@@ -78,7 +78,7 @@ fn animate_sprite_system(
     mut query: Query<(&mut Timer, &mut TextureAtlasSprite)>,
 ) {
     if let Some(animation_data) = animation.get_current_data() {
-        for (timer, mut sprite) in &mut query.iter() {
+        for (timer, mut sprite) in query.iter_mut() {
             if timer.finished {
                 sprite.index = animation_data.get_index();
             }
@@ -124,7 +124,7 @@ impl LavaAnimData {
 fn animate_lava_system(
     mut query: Query<(&mut Lava, &mut Timer, &mut TextureAtlasSprite)>,
 ) {
-    for (mut lava, timer, mut sprite) in &mut query.iter() {
+    for (mut lava, timer, mut sprite) in query.iter_mut() {
         if timer.finished {
             sprite.index = lava.data.get_next_index();
         }

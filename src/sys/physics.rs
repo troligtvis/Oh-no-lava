@@ -29,15 +29,15 @@ pub fn process_velocity_system(
     time: Res<Time>,
     mut query: Query<(&physics::Velocity, &mut Transform)>,
 ) {
-    for (velocity, mut transform) in &mut query.iter() {
-        transform.translate(velocity.0.extend(0.) * time.delta_seconds);
+    for (velocity, mut transform) in query.iter_mut() {
+        transform.translation += velocity.0.extend(0.) * time.delta_seconds;
     }
 }
 
 pub fn drag_system(
     time: Res<Time>, 
     mut query: Query<(&mut physics::Velocity, &physics::Drag)>) {
-    for (mut velocity, drag) in &mut query.iter() {
+    for (mut velocity, drag) in query.iter_mut() {
         *velocity = physics::Velocity(velocity.lerp(Vec2::zero(), time.delta_seconds * drag.0));
     }
 }
@@ -67,7 +67,7 @@ fn adjust_jump_system(
 ) {
     let dt = time.delta_seconds;
 
-    for (_player, mut velocity, affected) in &mut query.iter() {
+    for (_player, mut velocity, affected) in query.iter_mut() {
         if !affected.is_active {
             break;
         }
@@ -90,19 +90,19 @@ fn player_collision_system(
         &comp::physics::ColliderBox,
         &mut Transform
     )>,
-    mut query_2: Query<(
+    query_2: Query<(
         &comp::physics::ColliderBox,
         Without<comp::actor::Player, &Transform>,
         &comp::physics::Velocity,
     )>,
 ) {
-    for (_, body, transform) in &mut query_1.iter() {
+    for (_, body, transform) in query_1.iter_mut() {
         for (other_body, other_transform, other_velocity) in &mut query_2.iter() {
-            let mut translation = transform.translation().clone();
+            let mut translation = transform.translation.clone();
             *translation.y_mut() -= 1.;
 
             let collision = collide(
-                other_transform.translation(), 
+                other_transform.translation, 
                 other_body.get_size(), 
                 translation,
                 body.get_size(),
@@ -123,8 +123,8 @@ fn player_collision_system(
 pub fn update_raycast(
     mut query: Query<(With<comp::actor::Player, &Transform>, &mut comp::physics::Raycast)>
 ) {
-    for (transform, mut raycast) in &mut query.iter() {
-        raycast.origin = transform.translation().truncate();
+    for (transform, mut raycast) in query.iter_mut() {
+        raycast.origin = transform.translation.truncate();
     }   
 }
 
@@ -138,7 +138,7 @@ pub fn shoot_raycast(
         &mut comp::physics::CollisionData,
         &mut comp::physics::Velocity,
     )>,
-    mut query2: Query<(With<stats::Wall, &Transform>, &physics::ColliderBox, &physics::Velocity)>,
+    query2: Query<(With<stats::Wall, &Transform>, &physics::ColliderBox, &physics::Velocity)>,
 ) {
     for (
         mut transform, 
@@ -148,14 +148,14 @@ pub fn shoot_raycast(
         facing, 
         mut collision_data,
         mut velocity,
-    ) in &mut query1.iter() {
+    ) in query1.iter_mut() {
         let mut position = raycast.origin.extend(0.);
         *position.x_mut() = position.x() + (p_box.get_size().x() / 2. * facing.0);
 
         let size = Vec2::new(12., 1.);
         
         for (other_transform, other_box, other_velocity) in &mut query2.iter() {
-            if let Some(collision) = collide(position, size, other_transform.translation(), other_box.get_size()) {
+            if let Some(collision) = collide(position, size, other_transform.translation, other_box.get_size()) {
                 
                 collision_data.right = false;
                 collision_data.left = false;
@@ -165,11 +165,11 @@ pub fn shoot_raycast(
                     Collision::Left => {
                         attraction.is_active = false;
 
-                        let mut translation = transform.translation();
+                        let mut translation = transform.translation;
 
-                        if translation.x() + p_box.get_size().x() / 2. > other_transform.translation().x() - other_box.get_size().x() / 2. {
-                            *translation.x_mut() = other_transform.translation().x() - other_box.get_size().x() / 2. - p_box.get_size().x() / 2.;
-                            transform.set_translation(translation);
+                        if translation.x() + p_box.get_size().x() / 2. > other_transform.translation.x() - other_box.get_size().x() / 2. {
+                            *translation.x_mut() = other_transform.translation.x() - other_box.get_size().x() / 2. - p_box.get_size().x() / 2.;
+                            transform.translation = translation;
                         }
                        
                         collision_data.right = true;
@@ -179,11 +179,11 @@ pub fn shoot_raycast(
                     Collision::Right => {
                         attraction.is_active = false;
 
-                        let mut translation = transform.translation();
+                        let mut translation = transform.translation;
 
-                        if translation.x() - p_box.get_size().x() / 2. < other_transform.translation().x() + other_box.get_size().x() / 2. {
-                            *translation.x_mut() = other_transform.translation().x() + other_box.get_size().x() / 2. + p_box.get_size().x() / 2.;
-                            transform.set_translation(translation);
+                        if translation.x() - p_box.get_size().x() / 2. < other_transform.translation.x() + other_box.get_size().x() / 2. {
+                            *translation.x_mut() = other_transform.translation.x() + other_box.get_size().x() / 2. + p_box.get_size().x() / 2.;
+                            transform.translation = translation;
                         }
 
                         collision_data.left = true;

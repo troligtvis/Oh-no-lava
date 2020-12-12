@@ -18,8 +18,8 @@ impl Plugin for GameActorPlugin {
             .init_resource::<res::WallJumpListenerState>()
             .init_resource::<res::ShootListenerState>()
             .add_system(process_commands_system.system())
-            .add_system_to_stage(stage::EVENT_UPDATE, jump_system.system())
-            .add_system_to_stage(stage::EVENT_UPDATE, wall_jump_system.system())            
+            .add_system_to_stage(stage::EVENT, jump_system.system())
+            .add_system_to_stage(stage::EVENT, wall_jump_system.system())            
             .add_system(process_crosshair_system.system())
             .add_system(shoot_projectile_system.system())
             .add_system_to_stage(stage::POST_UPDATE, clean_projectile_system.system());
@@ -50,7 +50,7 @@ pub fn process_commands_system(
         speed, 
         mut facing,
         _collision_data,
-    ) in &mut query.iter() {
+    ) in query.iter_mut() {
         let movement = if controller.movement.x() + controller.movement.y() != 0.0 {
             controller.movement.normalize()
         } else {
@@ -123,13 +123,13 @@ pub fn jump_system(
             jump_force, 
             mut attraction,
             mut grounded,
-            mut stretch_timer,
-        ) in &mut query.iter() {
+            _stretch_timer,
+        ) in query.iter_mut() {
             // Move the position of the player a bit up to 
             // avoid colliding with object before jumping
-            let mut translation = transform.translation();
+            let mut translation = transform.translation;
             *translation.y_mut() += 2.;
-            transform.set_translation(translation);
+            transform.translation = translation;
 
             attraction.is_active = true;
             grounded.0 = false;
@@ -166,14 +166,14 @@ pub fn wall_jump_system(
             mut collision_data,
             body,
             facing,
-            mut stretch_timer,
-        ) in &mut query.iter() {
-            let mut translation = transform.translation();
-            let mut position = transform.translation().truncate();
+            _stretch_timer,
+        ) in query.iter_mut() {
+            let mut translation = transform.translation;
+            let mut position = transform.translation.truncate();
 
             if collision_data.left {
                 *translation.x_mut() += 8.;
-                transform.set_translation(translation);
+                transform.translation = translation;
 
                 attraction.is_active = true;
 
@@ -197,7 +197,7 @@ pub fn wall_jump_system(
 
             } else if collision_data.right {
                 *translation.x_mut() -= 8.;
-                transform.set_translation(translation);
+                transform.translation = translation;
 
                 attraction.is_active = true;
 
@@ -223,28 +223,28 @@ pub fn wall_jump_system(
     }
 }
 
-fn stretch_to_normal_system(
-        time: Res<Time>,
-        mut query: Query<(With<actor::Player, &mut Transform>, &mut stats::StretchTimer)>
-    ) {
-        for (mut transform, mut timer) in &mut query.iter() {
-            timer.0.tick(time.delta_seconds);
+// fn stretch_to_normal_system(
+//         time: Res<Time>,
+//         mut query: Query<(With<actor::Player, &mut Transform>, &mut stats::StretchTimer)>
+//     ) {
+//         for (mut transform, mut timer) in query.iter_mut() {
+//             timer.0.tick(time.delta_seconds);
     
-            if timer.0.finished {
-                transform.set_non_uniform_scale(Vec3::one());
-            }
-    }
-}
+//             if timer.0.finished {
+//                transform.set_non_uniform_scale(Vec3::one());
+//             }
+//     }
+// }
 
-fn stretch_sprite(
-    timer: &mut stats::StretchTimer,
-    transform: &mut Transform,
-) {
-    timer.0.reset();
-    timer.0.duration = 0.4;
+// fn stretch_sprite(
+//     timer: &mut stats::StretchTimer,
+//     transform: &mut Transform,
+// ) {
+//     timer.0.reset();
+//     timer.0.duration = 0.4;
                 
-    transform.set_non_uniform_scale(Vec3::new(0.9, 1.1, 1.)); 
-}
+//     transform.set_non_uniform_scale(Vec3::new(0.9, 1.1, 1.)); 
+// }
 
 /// Spawn and shoot proectile
 pub fn shoot_projectile_system(
@@ -252,13 +252,13 @@ pub fn shoot_projectile_system(
     materials: ResMut<res::ColorMaterialStorage>,
     shoot_event: Res<Events<res::ShootEvent>>,
     mut shoot_event_reader: ResMut<res::ShootListenerState>,
-    mut query_1: Query<With<actor::Crosshair, &Transform>>,
-    mut query_2: Query<With<actor::Player, &Transform>>
+    query_1: Query<With<actor::Crosshair, &Transform>>,
+    query_2: Query<With<actor::Player, &Transform>>
 ) {
     for _event in shoot_event_reader.event_reader.iter(&shoot_event) {
         for transform in &mut query_1.iter() {
             for other_transform in &mut query_2.iter() {
-                let direction = util::get_direction(&other_transform.translation().truncate(), &transform.translation().truncate());
+                let direction = util::get_direction(&other_transform.translation.truncate(), &transform.translation.truncate());
                 let projectile_velocity = direction.normalize() * 200.; // TODO - remove magic value
 
                 let upper = 20.;
@@ -267,10 +267,11 @@ pub fn shoot_projectile_system(
                 let x = rng.gen_range(lower, upper);
                 let y = rng.gen_range(lower, upper);
 
+                let handle = materials.storage.get(&"Projectile".to_string()).unwrap();
                 commands
                     .spawn(SpriteComponents {
-                        material: *materials.storage.get(&"Projectile".to_string()).unwrap(),
-                        transform: Transform::from_translation(transform.translation().clone()),
+                        material: handle.clone(),
+                        transform: Transform::from_translation(transform.translation.clone()),
                         sprite: Sprite {
                             size: Vec2::new(5., 5.),
                             ..Default::default()
@@ -305,9 +306,9 @@ pub fn clean_projectile_system(
     )>,
 ) {
     let size = util::get_window_size(windows);
-    for (entity, mut timer, mut sprite, transform) in &mut query.iter() {
+    for (entity, mut timer, mut sprite, transform) in query.iter_mut() {
         // Check if still within bounds
-        if transform.translation().y() < -size.height {
+        if transform.translation.y() < -size.height {
             println!("Despawn projectile, out of bounds");
             commands.despawn(entity);
             
@@ -330,13 +331,13 @@ pub fn clean_projectile_system(
 }
 
 pub fn process_crosshair_system(
-    mut query_1: Query<(&actor::Player, &actor::Controller, &Transform)>,
+    query_1: Query<(&actor::Player, &actor::Controller, &Transform)>,
     mut query_2: Query<(&actor::Crosshair, &mut Transform,)>,
 ) {
     for (_, controller, player_transform) in &mut query_1.iter() {
-        for (crosshair, mut crosshair_transform) in &mut query_2.iter() {            
+        for (crosshair, mut crosshair_transform) in query_2.iter_mut() {            
             set_aim(
-                &player_transform.translation().truncate(),
+                &player_transform.translation.truncate(),
                 &controller.cursor_position,
                 crosshair.distance,
                 &mut crosshair_transform,
@@ -360,7 +361,7 @@ fn flip_sprite(
         Quat::from_rotation_y(pi)
     };
 
-    transform.set_rotation(rotation);
+    transform.rotation = rotation;
 }
 
 /// Clamp value betwen min and max
@@ -379,5 +380,5 @@ fn set_aim(a: &Vec2, b: &Vec2, distance: f32, transform: &mut Transform) {
     let norm = direction.normalize() * distance;
     let aim = Vec2::new(a.x() + norm.x(), a.y() + norm.y()).extend(0.);
 
-    transform.set_translation(aim);
+    transform.translation = aim;
 }

@@ -41,30 +41,25 @@ fn setup_game_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut textures: ResMut<Assets<Texture>>,
 ) {
     commands.spawn(Camera2dComponents::default());
 
-    let texture_handle = asset_server
-    .load_sync(
-        &mut textures,
-        "resources/lava_floor.png",
-    )
-    .unwrap();
-    let texture = textures.get(&texture_handle).unwrap();
+    let texture_handle = asset_server.load("lava_floor.png");
+
+    let texture_size: f32 = 64.;
 
     // Ground
     commands
         .spawn(SpriteComponents {
             material: materials.add(texture_handle.into()),
-            transform: Transform::from_translation(Vec3::new(0., -SCR_HEIGHT / 2. + texture.size.y() / 2., 1.)),
+            transform: Transform::from_translation(Vec3::new(0., -SCR_HEIGHT / 2. + texture_size / 2., 1.)),
             
             ..Default::default()
         })
         .with(comp::physics::Velocity::default())
         .with(comp::physics::ColliderBox {
             w: SCR_WIDTH,
-            h: texture.size.y(),
+            h: texture_size,
         })
         .with(comp::stats::Ground);
 
@@ -110,17 +105,11 @@ fn setup_player_system(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<ColorMaterial>>,
-    mut textures: ResMut<Assets<Texture>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    let texture_handle = asset_server
-    .load_sync(
-        &mut textures,
-        "resources/player_animation.png",
-    )
-    .unwrap();
-    let texture = textures.get(&texture_handle).unwrap();
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 10, 3);
+    let texture_handle = asset_server.load("player_animation.png");
+    let texture_size = Vec2::new(42., 42.); // Vec2::new(320., 96.);
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, texture_size, 10, 3);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
 
     commands
@@ -178,29 +167,29 @@ fn setup_player_system(
 fn setup_lava_bubbles_system(
     mut commands: Commands, 
     asset_server: Res<AssetServer>,
-    mut textures: ResMut<Assets<Texture>>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    let texture_handle = asset_server
-        .load_sync(
-            &mut textures,
-            "resources/lava_bubbles.png",
-        )
-        .unwrap();
-    let texture = textures.get(&texture_handle).unwrap();
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, texture.size, 25, 1);
-    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    
     
     let width_8 = SCR_WIDTH / 8.;
     let mut rng = thread_rng();
 
     for i in 0..8 {
+        let texture_handle = asset_server.load("lava_bubbles.png");
+        let texture_size = Vec2::new(32., 32.); //Vec2::new(800., 32.);
+        let texture_atlas = TextureAtlas::from_grid(texture_handle, texture_size, 25, 1);
+        let texture_atlas_handle = texture_atlases.add(texture_atlas);
+
         let start_index = rng.gen_range(0, 24) as u32;
         let x = -SCR_WIDTH / 2. + 32. + i as f32 * width_8;
         
+        let scale = Vec3::one() * 2.;
+        let mut transform = Transform::from_scale(scale);
+        transform.translation = Vec3::new(x, -SCR_HEIGHT / 2. + texture_size.y() + 64., 1.);
+
         commands.spawn(SpriteSheetComponents {
             texture_atlas: texture_atlas_handle,
-            transform: Transform::from_translation(Vec3::new(x, -SCR_HEIGHT / 2. + texture.size.y() + 64., 1.)).with_scale(2.),
+            transform,
             draw: Draw {
                 is_transparent: true,
                 is_visible: true,

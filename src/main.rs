@@ -28,9 +28,7 @@ fn main() {
         .add_plugin(animation::AnimationPlugin)
         .add_plugin(sys::GameLogicPlugin)
         .add_plugin(setup::GameSetupPlugin)
-        .add_default_plugins()
-        
+        .add_plugins(DefaultPlugins)
         .add_resource(comp::physics::Gravity(9.82 * 40.))
-        
         .run();
 }

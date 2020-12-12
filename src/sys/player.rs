@@ -42,7 +42,7 @@ pub fn handle_input_system(
         mut controller, 
         collision_data, 
         grounded
-    ) in &mut query.iter() {
+    ) in query.iter_mut() {
         if mouse_button_input.pressed(MouseButton::Left) { 
             controller.action
                 .push_back(comp::actor::ControllerAction::Shoot);

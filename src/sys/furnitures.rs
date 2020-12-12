@@ -39,9 +39,10 @@ fn setup_furnitures(
     let size = Vec2::new(84., 136.); 
 
     for _ in 0..10 {
+        let handle = materials.storage.get(&"Default_Furniture".to_string()).unwrap();
         commands
             .spawn(SpriteComponents {
-                material: *materials.storage.get(&"Default_Furniture".to_string()).unwrap(),
+                material: handle.clone(),
                 transform: Transform::from_translation(Vec3::zero()),
                 sprite: Sprite {
                     size,
@@ -86,16 +87,16 @@ fn spawn_system(
 
     let scr_size = util::get_window_size(windows);
 
-    for (mut transform, mut velocity, mut draw) in &mut query.iter() {
+    for (mut transform, mut velocity, mut draw) in query.iter_mut() {
         if !draw.is_visible {
             draw.is_visible = true;
             *velocity.0.x_mut() = -60.;
     
-            transform.set_translation(Vec3::new(
+            transform.translation = Vec3::new(
                 scr_size.width / 2. + 200., 
                 -scr_size.height / 2. + 50., 
                 0.
-            ));
+            );
 
             // We only want one
             return;
@@ -113,8 +114,8 @@ fn despawn_system(
 ) {
     let window_size = util::get_window_size(windows);
 
-    for (mut transform, mut draw, mut velocity) in &mut query.iter() {
-        if transform.translation().x() < -window_size.width / 2. - 200. {
+    for (mut transform, mut draw, mut velocity) in query.iter_mut() {
+        if transform.translation.x() < -window_size.width / 2. - 200. {
             draw.is_visible = false;
 
             let start_position = Vec3::new(
@@ -123,7 +124,7 @@ fn despawn_system(
                 0.
             );
 
-            transform.set_translation(start_position);
+            transform.translation = start_position;
 
             *velocity.0.x_mut() = 0.;
         }

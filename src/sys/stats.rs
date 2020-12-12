@@ -30,7 +30,7 @@ pub fn collider_contact_system(
         mut attraction, 
         mut collision_data,
         mut velocity,
-    ) in &mut query.iter() {
+    ) in query.iter_mut() {
         attraction.is_active = true;
         collision_data.below = false;
         let prev_below = grounded.0;
@@ -47,7 +47,7 @@ pub fn collider_contact_system(
 
             if collision_data.below {
                 if !prev_below {
-                    let mut translation = transform.translation().truncate();
+                    let mut translation = transform.translation.truncate();
                     *translation.y_mut() -= body.get_size().y() / 2.;
                     sys::particles::spawn_dust_particle(
                         &mut commands, 
@@ -71,7 +71,7 @@ fn set_grounded_if_needed(
 ) -> bool {
     match event.hit_collision {
         Collision::Left | Collision::Right | Collision::Bottom => {
-            if transform.translation().y() - size.y() / 2. < event.hit_transform.translation().y() + event.hit_size.y() / 2. - 10.
+            if transform.translation.y() - size.y() / 2. < event.hit_transform.translation.y() + event.hit_size.y() / 2. - 10.
             { 
                 return false
             }
@@ -79,9 +79,9 @@ fn set_grounded_if_needed(
         _ => {}
     }
 
-    let mut translation = transform.translation();
-    *translation.y_mut() = event.hit_transform.translation().y() + event.hit_size.y() / 2. + size.y() / 2. + 0.1;
-    transform.set_translation(translation);
+    let mut translation = transform.translation;
+    *translation.y_mut() = event.hit_transform.translation.y() + event.hit_size.y() / 2. + size.y() / 2. + 0.1;
+    transform.translation = translation;
                 
     grounded.0 = true;
     attraction.is_active = false;
