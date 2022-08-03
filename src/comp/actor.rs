@@ -1,10 +1,8 @@
 use bevy::prelude::*;
 use std::collections::VecDeque;
 
-#[derive(Debug, Default)]
-pub struct Player {
-
-}
+#[derive(Component)]
+pub struct Player {}
 
 pub struct Furniture;
 
