@@ -1,50 +1,84 @@
-use bevy::prelude::*;
 use std::collections::VecDeque;
 
+use bevy::prelude::*;
+
 #[derive(Component)]
-pub struct Player {}
+pub struct Player;
 
-pub struct Furniture;
+#[derive(Component)]
+pub struct Ground;
 
-// // Different types of spawning furnitures
-// enum FurnitureShape {
-//     Chair,
-//     Table,
-//     Sofa,
-//     Refrigerator,
-//     TV,
-//     Lamp,
+#[derive(Component, Default)]
+pub struct Controller {
+    // pub cursor_position: Vec2,
+    pub movement: Vec2,
+    pub movement_action: VecDeque<MovementAction>,
+}
+
+#[derive(Component)]
+pub enum MovementAction {
+    Jump,
+}
+
+pub struct JumpEvent;
+
+#[derive(Default)]
+pub struct Jump;
+
+// #[derive(Default)]
+// pub struct JumpListenerState {
+//     pub event_reader: EventReader<JumpEvent>,
 // }
 
-#[derive(Debug, Default)]
-pub struct Controller {
-    pub cursor_position: Vec2,
-    pub movement: Vec2,
-    pub action: VecDeque<ControllerAction>,
-}
+pub struct JumpTriggerState;
 
-impl Controller {
-    pub fn reset_movement(&mut self) {
-        self.movement = Vec2::zero();
-    }
-}
 
-#[derive(Debug)]
-pub enum ControllerAction {
-    Shoot,
-    Jump,
-    WallJump,
-}
+// use std::collections::VecDeque;
 
-pub struct Crosshair {
-    pub distance: f32,
-}
+// #[derive(Component)]
+// pub struct Player {}
 
-pub struct CrosshairController {
-    pub aim: Vec2,
-    pub distance: f32,
-}
+// pub struct Furniture;
 
-pub struct Projectile {
-    pub direction: Vec2,
-}
+// // // Different types of spawning furnitures
+// // enum FurnitureShape {
+// //     Chair,
+// //     Table,
+// //     Sofa,
+// //     Refrigerator,
+// //     TV,
+// //     Lamp,
+// // }
+
+// #[derive(Debug, Default)]
+// pub struct Controller {
+//     pub cursor_position: Vec2,
+//     pub movement: Vec2,
+//     pub action: VecDeque<ControllerAction>,
+// }
+
+// impl Controller {
+//     pub fn reset_movement(&mut self) {
+//         self.movement = Vec2::zero();
+//     }
+// }
+
+// #[derive(Debug)]
+// pub enum ControllerAction {
+//     Shoot,
+//     Jump,
+//     WallJump,
+// }
+
+// pub struct Crosshair {
+//     pub distance: f32,
+// }
+
+// pub struct CrosshairController {
+//     pub aim: Vec2,
+//     pub distance: f32,
+// }
+
+// pub struct Projectile {
+//     pub direction: Vec2,
+// }

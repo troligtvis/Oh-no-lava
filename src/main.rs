@@ -2,9 +2,9 @@
 
 use bevy::{ 
     prelude::*,
-    render::{texture::ImageSettings, camera::ScalingMode},
+    render::{texture::ImageSettings},
     // reflect::TypeUuid,
-    input::{keyboard::KeyCode, Input}, ecs::system::Insert, transform, sprite::collide_aabb::{self, collide, Collision},
+    input::{keyboard::KeyCode, Input},
 };
     //render::pass::ClearColor,
     //diagnostic::FrameTimeDiagnosticsPlugin,
@@ -13,8 +13,11 @@ use bevy::{
 // mod animation;
 // mod util;
 // mod res;
-// mod comp;
-// mod sys;
+mod comp;
+mod sys;
+
+use comp::physics::{Body, Velocity, Drag, GravitationalAttraction};
+use comp::actor::{Player, Ground, Controller};
 
 fn main() {
     App::new()
@@ -27,11 +30,11 @@ fn main() {
         ..Default::default()
     })
     .add_plugins(DefaultPlugins)
-    .add_plugin(PhysicsPlugin)
+    .add_plugin(sys::GameLogicPlugin)
     // .add_plugin(AnimationPlugin{})
     .add_startup_system(setup)
     .add_startup_system(setup_ground)
-    .add_system(handle_input)
+    // .add_system(handle_input)
     // .add_system(animate_sprite)
     .run();
 
@@ -165,7 +168,7 @@ fn setup(
     commands.spawn_bundle(Camera2dBundle::default());
 
 
-    const SCALE: f32 = 2.;
+    const SCALE: f32 = 1.;
     commands
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
@@ -173,6 +176,7 @@ fn setup(
             ..default()
         })
         .insert(Player)
+        .insert(Controller::default())
         .insert(Velocity::default())
         .insert(Drag(1.85))
         .insert(GravitationalAttraction::default())
@@ -196,8 +200,7 @@ fn setup_ground(
     .insert(Body((800., 64.)));
 }
 
-#[derive(Component)]
-struct Player;
+
 
 fn handle_input(
     time: Res<Time>,
@@ -221,118 +224,4 @@ fn handle_input(
             transform.translation.x += 1.0;
         }
     } 
-}
-
-struct PhysicsPlugin;
-
-impl Plugin for PhysicsPlugin {
-    fn build(&self, app: &mut App) {
-        app
-        .insert_resource(Gravity::default())
-        .add_system(apply_velocity)
-        .add_system(apply_drag)
-        .add_system(apply_gravity)
-        .add_system(player_ground_collision);
-    }
-}
-
-fn apply_velocity(
-    time: Res<Time>,
-    mut query: Query<(&Velocity, &mut Transform)>
-) {
-    for (velocity, mut transform) in &mut query {
-        transform.translation += velocity.0.extend(0.) * time.delta_seconds();
-    }
-}
-
-fn apply_drag(
-    time: Res<Time>,
-    mut query: Query<(&mut Velocity, &Drag)>
-) {
-    for (mut velocity, drag) in &mut query {
-        *velocity = Velocity(velocity.0.lerp(Vec2::ZERO, time.delta_seconds() * drag.0));
-    }
-}
-
-fn apply_gravity(
-    gravity: Res<Gravity>,
-    time: Res<Time>,
-    mut query: Query<(&GravitationalAttraction, &mut Velocity)>
-) {
-    for (attraction, mut velocity) in &mut query {
-        if attraction.is_active {
-            velocity.0.y -= gravity.0 * time.delta_seconds(); 
-        } else {
-            velocity.0.y = 0.;
-        }
-    }
-}
-
-#[derive(Component, Default)]
-struct Velocity(pub Vec2);
-
-impl Velocity {
-    pub fn new(x: f32, y: f32) -> Self {
-        Self(Vec2::new(x, y))
-    }
-}
-
-#[derive(Component)]
-struct Drag(pub f32);
-
-#[derive(Component)]
-struct Gravity(pub f32);
-
-impl Default for Gravity {
-    fn default() -> Self {
-        Self(9.82 * 40.)
-    }
-}
-
-#[derive(Component)]
-struct GravitationalAttraction {
-    pub is_active: bool,
-}
-
-impl Default for GravitationalAttraction {
-    fn default() -> Self {
-        Self { is_active: true, }
-    }
-}
-
-#[derive(Component)]
-struct Body(pub (f32, f32));
-
-impl Body {
-    pub fn get_size(&self) -> Vec2 {
-        Vec2::new(self.0.0, self.0.1)
-    }
-}
-
-#[derive(Component)]
-struct Ground;
-
-fn player_ground_collision(
-    mut query1: Query<(With<Player>, &Body, &Transform, &mut GravitationalAttraction)>,
-    mut query2: Query<(With<Ground>, &Body, &Transform)>
-) {
-    for (_, player_body, player_transform, mut attraction) in query1.iter_mut() {
-        for (_, other_body, other_transform) in query2.iter_mut() {
-            let mut translation = player_transform.translation.clone();
-            translation.y -= 1.;
-
-            let collision = collide(
-                other_transform.translation,
-                other_body.get_size(),
-                translation,
-                player_body.get_size()
-            );
-
-            if let Some(hit) = collision {
-                attraction.is_active = !matches!(hit, Collision::Bottom);    
-            } else {
-                attraction.is_active = true;
-            }
-        }
-    }
 }

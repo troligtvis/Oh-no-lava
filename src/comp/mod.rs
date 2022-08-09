@@ -1,9 +1,11 @@
-pub mod actor;
 pub mod physics;
-pub mod stats;
-pub mod particles;
+pub mod actor;
 
-use bevy::prelude::*;
+// pub mod physics;
+// pub mod stats;
+// pub mod particles;
 
-#[derive(Debug, Default, Properties)]
-pub struct Despawnable;
+// use bevy::prelude::*;
+
+// #[derive(Debug, Default, Properties)]
+// pub struct Despawnable;
