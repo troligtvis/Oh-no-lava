@@ -19,6 +19,8 @@ mod sys;
 use comp::physics::{Body, Velocity, Drag, GravitationalAttraction};
 use comp::actor::{Player, Ground, Controller};
 
+use crate::comp::stats::{Facing, MovementSpeed};
+
 fn main() {
     App::new()
     .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
@@ -161,8 +163,11 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
+    // let texture_handle = asset_server.load("inframe_idlerun.png");
+    
     let texture_handle = asset_server.load("player_animation.png");
     let tile_size = Vec2::new(32.0, 32.0);
+    // let texture_atlas = TextureAtlas::from_grid(texture_handle, tile_size, 8, 3);
     let texture_atlas = TextureAtlas::from_grid(texture_handle, tile_size, 10, 3);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands.spawn_bundle(Camera2dBundle::default());
@@ -178,18 +183,19 @@ fn setup(
         .insert(Player)
         .insert(Controller::default())
         .insert(Velocity::default())
+        .insert(MovementSpeed{accel: 100., max: 200.})
         .insert(Drag(1.85))
         .insert(GravitationalAttraction::default())
-        .insert(Body((16. * SCALE, 32. * SCALE)));
+        .insert(Body((16. * SCALE, 32. * SCALE)))
+        .insert(Facing(1.));
+        // .insert(Body((32. * SCALE, 32. * SCALE)));
         // .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
 }
 
 fn setup_ground(
     mut commands: Commands,
     asset_server: Res<AssetServer>,
-    mut materials: ResMut<Assets<ColorMaterial>>,
 ) {
-
     commands
         .spawn_bundle(SpriteBundle {
         texture: asset_server.load("lava_floor.png"),

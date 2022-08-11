@@ -20,7 +20,11 @@ impl Plugin for PhysicsPlugin {
         .add_system(apply_velocity)
         .add_system(apply_drag)
         .add_system(apply_gravity)
-        .add_system(player_ground_collision);
+        // .add_system(player_ground_collision)
+        .add_stage_after(CoreStage::PreUpdate, "GroundCheck", SystemStage::parallel())
+        // .add_system_to_stage("PreUpdate", player_ground_collision)
+        .add_system_to_stage("GroundCheck", player_ground_collision)
+        .add_system(adjust_jump);
     }
 }
 
@@ -52,6 +56,26 @@ fn apply_gravity(
             velocity.0.y -= gravity.0 * time.delta_seconds(); 
         } else {
             velocity.0.y = 0.;
+        }
+    }
+}
+
+fn adjust_jump(
+    gravity: Res<Gravity>,
+    time: Res<Time>,
+    keyboard_input: Res<Input<KeyCode>>,
+    mut query: Query<(With<Player>, &mut Velocity, &GravitationalAttraction)>
+) {
+    let dt = time.delta_seconds();
+
+    for (_, mut velocity, attraction) in query.iter_mut() {
+        if !attraction.is_active { break; }
+
+        // Better jumping
+        if velocity.0.y < 0.0 {
+            velocity.0 += Vec2::Y * -gravity.0 * FALL_MULTIPLIER * dt;
+        } else if velocity.0.y > 0.0 && !keyboard_input.pressed(KeyCode::Space) {
+            velocity.0 += Vec2::Y * -gravity.0 * (LOW_JUMP_MULTIPLIER - 1.0) * dt;
         }
     }
 }

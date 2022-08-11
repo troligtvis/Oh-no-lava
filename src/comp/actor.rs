@@ -12,11 +12,17 @@ pub struct Ground;
 pub struct Controller {
     // pub cursor_position: Vec2,
     pub movement: Vec2,
-    pub movement_action: VecDeque<MovementAction>,
+    pub movement_action: VecDeque<Action>,
+}
+
+impl Controller {
+    pub fn reset_movement(&mut self) {
+        self.movement = Vec2::ZERO;
+    }
 }
 
 #[derive(Component)]
-pub enum MovementAction {
+pub enum Action {
     Jump,
 }
 

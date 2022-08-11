@@ -1,36 +1,45 @@
 use bevy::prelude::*;
 
-#[derive(Debug, Default, Properties)]
-pub struct StartPosition(pub Vec2);
+#[derive(Component)]
+pub struct Facing(pub f32);
 
-#[derive(Debug, Default, Properties)]
+#[derive(Default, Component)]
 pub struct MovementSpeed {
     pub accel: f32,
     pub max: f32,
 }
 
-#[derive(Debug, Default, Properties)]
-pub struct JumpForce(pub f32);
+// #[derive(Debug, Default, Properties)]
+// pub struct StartPosition(pub Vec2);
 
-#[derive(Debug, Default, Properties)]
-pub struct Grounded(pub bool); // Move into physics.rs ? :shrug:
+// #[derive(Debug, Default, Properties)]
+// pub struct MovementSpeed {
+//     pub accel: f32,
+//     pub max: f32,
+// }
 
-#[derive(Debug, Default, Properties)]
-pub struct Wall;
+// #[derive(Debug, Default, Properties)]
+// pub struct JumpForce(pub f32);
 
-#[derive(Debug, Default, Properties)]
-pub struct Ground;
+// #[derive(Debug, Default, Properties)]
+// pub struct Grounded(pub bool); // Move into physics.rs ? :shrug:
 
-#[derive(Debug, Default, Properties)]
-pub struct Facing(pub f32);
+// #[derive(Debug, Default, Properties)]
+// pub struct Wall;
 
-#[derive(Debug, Default, Properties)]
-pub struct TimeToLive(pub Timer);
-#[derive(Debug, Default, Properties)]
-pub struct WallStickTimer(pub Timer);
+// #[derive(Debug, Default, Properties)]
+// pub struct Ground;
 
-#[derive(Debug, Default, Properties)]
-pub struct SpawnTimer(pub Timer);
+// #[derive(Debug, Default, Properties)]
+// pub struct Facing(pub f32);
 
-#[derive(Debug, Default, Properties)]
-pub struct StretchTimer(pub Timer);
+// #[derive(Debug, Default, Properties)]
+// pub struct TimeToLive(pub Timer);
+// #[derive(Debug, Default, Properties)]
+// pub struct WallStickTimer(pub Timer);
+
+// #[derive(Debug, Default, Properties)]
+// pub struct SpawnTimer(pub Timer);
+
+// #[derive(Debug, Default, Properties)]
+// pub struct StretchTimer(pub Timer);

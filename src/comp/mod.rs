@@ -1,5 +1,6 @@
 pub mod physics;
 pub mod actor;
+pub mod stats;
 
 // pub mod physics;
 // pub mod stats;

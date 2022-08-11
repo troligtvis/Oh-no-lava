@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
 use crate::comp::{
-    actor::{Player, Controller, MovementAction, Jump}, 
-    physics::{GravitationalAttraction, Velocity}
+    actor::{Player, Controller, Action, Jump}, 
+    physics::{GravitationalAttraction, Velocity}, stats::{Facing, MovementSpeed}
 };
 
 
@@ -13,17 +13,18 @@ impl Plugin for PlayerPlugin {
         app
         .add_event::<Jump>()
         .add_system(handle_input)
-        .add_system(jump_listener);
+        .add_system(process_input)
+        .add_system_to_stage(CoreStage::PreUpdate, jump_listener);
     }
 }
 
 fn handle_input(
     //time: Res<Time>,
     keyboard_input: Res<Input<KeyCode>>,
-    mut jump_event: EventWriter<Jump>,
-    mut query: Query<(With<Player>, &mut Controller, &mut Transform)>
+    // mut jump_event: EventWriter<Jump>,
+    mut query: Query<(With<Player>, &mut Controller)>
 ) {
-    for (_, mut controller, mut transform) in &mut query {
+    for (_, mut controller) in &mut query {
         // if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up) {
         //     transform.translation.y += 1.0; // * time.delta_seconds();
         // }
@@ -33,19 +34,66 @@ fn handle_input(
         // }
         
         if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left) {
-            transform.translation.x -= 1.0;
-            println!("Go left");
+            // transform.translation.x -= 1.0;
+            controller.movement.x -= 1.0;
         }
 
         if keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right) {
-            transform.translation.x += 1.0;
+            // transform.translation.x += 1.0;
+            controller.movement.x += 1.0;
         }
 
         if keyboard_input.just_pressed(KeyCode::Space) {
-            jump_event.send(Jump::default());
+            // jump_event.send(Jump::default());
+            controller.movement_action.push_back(Action::Jump);
             //controller.movement_action.push_back(MovementAction::Jump);
         }
     } 
+}
+
+fn process_input(
+    mut jump_event: EventWriter<Jump>,
+    mut query: Query<(
+        With<Player>, 
+        &mut Controller, 
+        &mut Velocity,
+        &MovementSpeed,
+        &mut Transform, 
+        &mut Facing
+    )>
+) {
+
+    for (_, mut controller, mut velocity, speed, mut transform, mut facing) in query.iter_mut() {
+        let movement = if controller.movement.x + controller.movement.y != 0.0 {
+            controller.movement.normalize()
+        } else {
+            controller.movement
+        };
+
+        let facing_direction = clamp(movement.x, -1., 1.);
+        if facing_direction != 0. {
+            facing.0 = facing_direction;
+        };
+
+        for action in controller.movement_action.drain(..) {
+            match action {
+                Action::Jump => jump_event.send(Jump::default()),
+            }
+        }
+
+        if (velocity.0.x + movement.x * speed.accel).abs() < speed.max {
+            velocity.0.x += movement.x * speed.accel;
+        } else {
+            if velocity.0.x < 0.0 {
+                velocity.0.x = -speed.max;
+            } else {
+                velocity.0.x = speed.max;
+            }
+        }
+
+        
+        controller.reset_movement();
+    }
 }
 
 fn jump_listener(
@@ -57,11 +105,19 @@ fn jump_listener(
             let mut translation = transform.translation;
             translation.y += 2.;
             transform.translation = translation;
-            println!("Jump!");
             gravitational_attraction.is_active = false;
             
             velocity.0.y = 200.;
         }
+    }
+}
+
+// TODO: convert to macro?
+fn clamp(value: f32, min: f32, max: f32) -> f32 {
+    match value {
+        x if x > 0. => max,
+        x if x < 0. => min,
+        _ => 0.
     }
 }
 
