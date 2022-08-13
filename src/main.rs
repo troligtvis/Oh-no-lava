@@ -10,7 +10,7 @@ use bevy::{
     //diagnostic::FrameTimeDiagnosticsPlugin,
 
 // mod setup;
-// mod animation;
+mod animation;
 // mod util;
 // mod res;
 mod comp;
@@ -19,7 +19,8 @@ mod sys;
 use comp::physics::{Body, Velocity, Drag, GravitationalAttraction};
 use comp::actor::{Player, Ground, Controller};
 
-use crate::comp::stats::{Facing, MovementSpeed};
+use crate::{comp::stats::{Facing, MovementSpeed}, 
+animation::{Animation, AnimationState, AnimationData, AnimationTimer}};
 
 fn main() {
     App::new()
@@ -33,6 +34,7 @@ fn main() {
     })
     .add_plugins(DefaultPlugins)
     .add_plugin(sys::GameLogicPlugin)
+    .add_plugin(animation::AnimationPlugin)
     // .add_plugin(AnimationPlugin{})
     .add_startup_system(setup)
     .add_startup_system(setup_ground)
@@ -187,7 +189,15 @@ fn setup(
         .insert(Drag(1.85))
         .insert(GravitationalAttraction::default())
         .insert(Body((16. * SCALE, 32. * SCALE)))
-        .insert(Facing(1.));
+        .insert(Facing(1.))
+        .insert( Animation::new( 
+            vec![
+                AnimationData::new(AnimationState::Idle, 0, 4),
+                AnimationData::new(AnimationState::Run, 10, 5),
+            ], 
+        AnimationState::Run))
+        
+        .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
         // .insert(Body((32. * SCALE, 32. * SCALE)));
         // .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
 }
@@ -208,26 +218,26 @@ fn setup_ground(
 
 
 
-fn handle_input(
-    time: Res<Time>,
-    keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<(With<Player>, &mut Transform)>
-) {
-    for (_, mut transform) in &mut query {
-        if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up) {
-            transform.translation.y += 1.0; // * time.delta_seconds();
-        }
+// fn handle_input(
+//     time: Res<Time>,
+//     keyboard_input: Res<Input<KeyCode>>,
+//     mut query: Query<(With<Player>, &mut Transform)>
+// ) {
+//     for (_, mut transform) in &mut query {
+//         if keyboard_input.pressed(KeyCode::W) || keyboard_input.pressed(KeyCode::Up) {
+//             transform.translation.y += 1.0; // * time.delta_seconds();
+//         }
 
-        if keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down) {
-            transform.translation.y -= 1.0;
-        }
+//         if keyboard_input.pressed(KeyCode::S) || keyboard_input.pressed(KeyCode::Down) {
+//             transform.translation.y -= 1.0;
+//         }
         
-        if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left) {
-            transform.translation.x -= 1.0;
-        }
+//         if keyboard_input.pressed(KeyCode::A) || keyboard_input.pressed(KeyCode::Left) {
+//             transform.translation.x -= 1.0;
+//         }
 
-        if keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right) {
-            transform.translation.x += 1.0;
-        }
-    } 
-}
+//         if keyboard_input.pressed(KeyCode::D) || keyboard_input.pressed(KeyCode::Right) {
+//             transform.translation.x += 1.0;
+//         }
+//     } 
+// }
