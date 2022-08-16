@@ -2,7 +2,8 @@ use bevy::prelude::*;
 use bevy::sprite::collide_aabb::{collide, Collision};
 
 use crate::comp::physics::{Body, Velocity, Gravity, Drag, GravitationalAttraction};
-use crate::comp::actor::{Ground, Player};
+use crate::comp::actor::{Player};
+use crate::comp::ground::{Ground};
 
 // use crate::comp::{self, physics, stats};
 // use crate::res;

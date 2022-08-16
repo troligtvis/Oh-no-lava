@@ -1,7 +1,6 @@
-use bevy::{prelude::*, reflect::erased_serde::private::serde::__private::de};
-use std::collections::HashMap;
+use bevy::{prelude::*};
 
-use crate::comp::actor::Player;
+use crate::comp::{actor::Player, ground::Ground};
 
 #[derive(Component)]
 pub struct AnimationTimer(pub Timer);
@@ -17,16 +16,17 @@ impl Plugin for AnimationPlugin {
 
 fn animate_sprite(
     time: Res<Time>,
-    mut query: Query<(With<Player>, &mut Animation, &mut AnimationTimer, &mut TextureAtlasSprite)>,
+    mut query: Query<( &mut Animation, &mut AnimationTimer, &mut TextureAtlasSprite)>,
 ) {
 
-    for (_, mut animation_data, mut timer, mut sprite) in query.iter_mut() {
+    for (mut animation_data, mut timer, mut sprite) in query.iter_mut() {
         
         timer.0.tick(time.delta());
 
         if timer.0.finished() {
             if let Some(data) = animation_data.get_current_data() {
-                sprite.index = data.get_index();
+                let index = data.get_index();
+                sprite.index = index;
             }
         }
     }
@@ -45,11 +45,12 @@ pub struct AnimationData {
     start_index: u8,
     frames_count: u8,
     current_index: u8,
+    offset: u8,
 }
 
 impl AnimationData {
-    pub fn new(state: AnimationState, start_index: u8, frames_count: u8) -> Self {
-        Self { state, start_index, frames_count, current_index: start_index }
+    pub fn new(state: AnimationState, start_index: u8, frames_count: u8, offset: u8) -> Self {
+        Self { state, start_index, frames_count, current_index: start_index, offset }
     }
 
     fn get_state(&self) -> u8 {
@@ -58,12 +59,12 @@ impl AnimationData {
 
     fn get_index(&mut self) -> usize {
         self.current_index += 1;
-       if self.current_index >= self.frames_count {
+        if self.current_index >= self.frames_count {
             self.current_index = 0;
         }
                 
         let i = self.frames_count - self.current_index;
-        ((i % self.frames_count) + self.start_index) as usize
+        (((i + self.offset) % self.frames_count) + self.start_index) as usize
     }
 }
 

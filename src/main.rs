@@ -17,7 +17,7 @@ mod comp;
 mod sys;
 
 use comp::physics::{Body, Velocity, Drag, GravitationalAttraction};
-use comp::actor::{Player, Ground, Controller};
+use comp::actor::{Player, Controller};
 
 use crate::{comp::stats::{Facing, MovementSpeed}, 
 animation::{Animation, AnimationState, AnimationData, AnimationTimer}};
@@ -25,7 +25,8 @@ animation::{Animation, AnimationState, AnimationData, AnimationTimer}};
 fn main() {
     App::new()
     .insert_resource(ImageSettings::default_nearest()) // prevents blurry sprites
-    .insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+    //.insert_resource(ClearColor(Color::rgb(0.04, 0.04, 0.04)))
+    .insert_resource(ClearColor(Color::rgb(0.24, 0.24, 0.24)))
     .insert_resource(WindowDescriptor {
         title: "Oh no, lava!".to_string(),
         width: 800.0,
@@ -37,7 +38,6 @@ fn main() {
     .add_plugin(animation::AnimationPlugin)
     // .add_plugin(AnimationPlugin{})
     .add_startup_system(setup)
-    .add_startup_system(setup_ground)
     // .add_system(handle_input)
     // .add_system(animate_sprite)
     .run();
@@ -165,17 +165,17 @@ fn setup(
     asset_server: Res<AssetServer>,
     mut texture_atlases: ResMut<Assets<TextureAtlas>>,
 ) {
-    // let texture_handle = asset_server.load("inframe_idlerun.png");
+    let texture_handle = asset_server.load("inframe_idlerun.png");
     
-    let texture_handle = asset_server.load("player_animation.png");
+//let texture_handle = asset_server.load("player_animation.png");
     let tile_size = Vec2::new(32.0, 32.0);
     // let texture_atlas = TextureAtlas::from_grid(texture_handle, tile_size, 8, 3);
-    let texture_atlas = TextureAtlas::from_grid(texture_handle, tile_size, 10, 3);
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, tile_size, 8, 3);
     let texture_atlas_handle = texture_atlases.add(texture_atlas);
     commands.spawn_bundle(Camera2dBundle::default());
 
 
-    const SCALE: f32 = 1.;
+    const SCALE: f32 = 2.;
     commands
         .spawn_bundle(SpriteSheetBundle {
             texture_atlas: texture_atlas_handle,
@@ -192,8 +192,10 @@ fn setup(
         .insert(Facing(1.))
         .insert( Animation::new( 
             vec![
-                AnimationData::new(AnimationState::Idle, 0, 4),
-                AnimationData::new(AnimationState::Run, 10, 5),
+                // AnimationData::new(AnimationState::Idle, 0, 4, 0),
+                // AnimationData::new(AnimationState::Run, 10, 5, 0),
+                AnimationData::new(AnimationState::Idle, 0, 5, 0),
+                AnimationData::new(AnimationState::Run, 16, 8, 0),
             ], 
         AnimationState::Run))
         
@@ -202,19 +204,19 @@ fn setup(
         // .insert(AnimationTimer(Timer::from_seconds(0.1, true)));
 }
 
-fn setup_ground(
-    mut commands: Commands,
-    asset_server: Res<AssetServer>,
-) {
-    commands
-        .spawn_bundle(SpriteBundle {
-        texture: asset_server.load("lava_floor.png"),
-        transform: Transform::from_translation(Vec3::new(0., -600. / 2. + 64. / 2., 1.)),
-        ..default()
-    })
-    .insert(Ground)
-    .insert(Body((800., 64.)));
-}
+// fn setup_ground(
+//     mut commands: Commands,
+//     asset_server: Res<AssetServer>,
+// ) {
+//     commands
+//         .spawn_bundle(SpriteBundle {
+//         texture: asset_server.load("lava_floor.png"),
+//         transform: Transform::from_translation(Vec3::new(0., -600. / 2. + 64. / 2., 1.)),
+//         ..default()
+//     })
+//     .insert(Ground)
+//     .insert(Body((800., 64.)));
+// }
 
 
 

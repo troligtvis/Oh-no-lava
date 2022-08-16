@@ -1,9 +1,9 @@
 use bevy::prelude::*;
 
-use crate::comp::{
+use crate::{comp::{
     actor::{Player, Controller, Action, Jump}, 
     physics::{GravitationalAttraction, Velocity}, stats::{Facing, MovementSpeed}
-};
+}, animation::{Animation, AnimationState}};
 
 
 pub struct PlayerPlugin;
@@ -59,11 +59,12 @@ fn process_input(
         &mut Velocity,
         &MovementSpeed,
         &mut Transform, 
-        &mut Facing
+        &mut Facing,
+        &mut Animation,
     )>
 ) {
 
-    for (_, mut controller, mut velocity, speed, mut transform, mut facing) in query.iter_mut() {
+    for (_, mut controller, mut velocity, speed, mut transform, mut facing, mut animation) in query.iter_mut() {
         let movement = if controller.movement.x + controller.movement.y != 0.0 {
             controller.movement.normalize()
         } else {
@@ -73,6 +74,8 @@ fn process_input(
         let facing_direction = clamp(movement.x, -1., 1.);
         if facing_direction != 0. {
             facing.0 = facing_direction;
+
+            flip_sprite(&mut transform, facing_direction);
         };
 
         for action in controller.movement_action.drain(..) {
@@ -91,6 +94,11 @@ fn process_input(
             }
         }
 
+        if movement.x.abs() > 0. {
+            animation.set_animation(AnimationState::Run);
+        } else {
+            animation.set_animation(AnimationState::Idle);
+        }
         
         controller.reset_movement();
     }
@@ -119,6 +127,22 @@ fn clamp(value: f32, min: f32, max: f32) -> f32 {
         x if x < 0. => min,
         _ => 0.
     }
+}
+
+/// Flip the transform depending on facing direction
+fn flip_sprite(
+    transform: &mut Transform,
+    direction: f32,
+) {
+    let pi = std::f32::consts::PI;
+    let rotation = if direction > 
+    0. {
+        Quat::IDENTITY
+    } else {
+        Quat::from_rotation_y(pi)
+    };
+
+    transform.rotation = rotation;
 }
 
 // use crate::comp;

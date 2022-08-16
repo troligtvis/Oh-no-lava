@@ -5,9 +5,6 @@ use bevy::prelude::*;
 #[derive(Component)]
 pub struct Player;
 
-#[derive(Component)]
-pub struct Ground;
-
 #[derive(Component, Default)]
 pub struct Controller {
     // pub cursor_position: Vec2,

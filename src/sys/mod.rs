@@ -2,6 +2,7 @@ use bevy::prelude::*;
 
 pub mod physics;
 pub mod player;
+pub mod ground;
 
 pub struct GameLogicPlugin;
 
@@ -9,7 +10,8 @@ impl Plugin for GameLogicPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugin(physics::PhysicsPlugin)
-            .add_plugin(player::PlayerPlugin);
+            .add_plugin(player::PlayerPlugin)
+            .add_plugin(ground::GroundPlugin);
     }
 }
 
