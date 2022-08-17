@@ -69,7 +69,7 @@ fn setup_lava_bubbles(
         .insert(Ground)
         .insert(Animation::new(
             vec![
-                AnimationData::new(crate::animation::AnimationState::Idle, 0, 25, start_index as u8),
+                AnimationData::new(crate::animation::AnimationState::Idle, 0, 25, start_index),
             ],
             crate::animation::AnimationState::Idle,
         ))
